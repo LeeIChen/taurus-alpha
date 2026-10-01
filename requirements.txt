@@ -1,0 +1,6 @@
+# Requires Python 3.10+
+anthropic>=1.0
+langgraph>=0.2
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.6
