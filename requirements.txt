@@ -4,3 +4,5 @@ langgraph>=0.2
 fastapi>=0.110
 uvicorn[standard]>=0.29
 pydantic>=2.6
+numpy>=1.26
+fastembed>=0.8  # local embeddings for hybrid search; optional (falls back to BM25)

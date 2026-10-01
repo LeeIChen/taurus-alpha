@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+import os
+from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import List, Optional
 
 import anthropic
@@ -10,9 +14,22 @@ from pydantic import BaseModel
 
 from app.llm import ClaudeRefusal
 from app.state import Citation, FinancialMetricResult, TaskPlan
+from app.tools.rag_search import default_index, load_filings
 from app.workflow import initial_state, research_graph
 
-app = FastAPI(title="taurus-alpha")
+FILINGS_DIR = Path(os.environ.get("TAURUS_FILINGS_DIR", Path(__file__).parent / "data" / "filings"))
+logger = logging.getLogger("uvicorn.error")
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    count = load_filings(FILINGS_DIR)
+    mode = "hybrid (BM25 + embeddings)" if default_index.has_embeddings else "BM25 only"
+    logger.info("Loaded %d filing chunks from %s; search mode: %s", count, FILINGS_DIR, mode)
+    yield
+
+
+app = FastAPI(title="taurus-alpha", lifespan=lifespan)
 
 
 class ResearchRequest(BaseModel):
