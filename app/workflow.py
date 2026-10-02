@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.analysis import analysis_node
@@ -29,7 +31,9 @@ def build_graph():
     return graph.compile()
 
 
-def initial_state(company_name: str, user_query: str) -> InvestmentAgentState:
+def initial_state(
+    company_name: str, user_query: str, current_price: Optional[float] = None
+) -> InvestmentAgentState:
     return {
         "company_name": company_name,
         "user_query": user_query,
@@ -37,6 +41,8 @@ def initial_state(company_name: str, user_query: str) -> InvestmentAgentState:
         "retrieved_docs": [],
         "financial_results": [],
         "citations": [],
+        "current_price": current_price,
+        "valuation": None,
         "draft_report": "",
         "faithfulness_score": 0.0,
         "current_step": "start",

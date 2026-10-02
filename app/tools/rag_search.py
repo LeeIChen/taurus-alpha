@@ -162,6 +162,20 @@ def canonical_company(name: str) -> str:
     return _COMPANY_ALIASES.get(key, name.strip())
 
 
+def available_companies(index: InMemoryIndex = default_index) -> List[str]:
+    return sorted({e.metadata["company"] for e in index._entries if "company" in e.metadata})
+
+
+def companies_mentioned(text: str, index: InMemoryIndex = default_index) -> List[str]:
+    """Indexed companies named in `text` by name, ticker or alias (whole words only)."""
+    indexed = set(available_companies(index))
+    found = set()
+    for alias, company in _COMPANY_ALIASES.items():
+        if company in indexed and re.search(rf"\b{re.escape(alias)}\b", text, re.IGNORECASE):
+            found.add(company)
+    return sorted(found)
+
+
 def load_filings(
     directory: Path,
     index: InMemoryIndex = default_index,
