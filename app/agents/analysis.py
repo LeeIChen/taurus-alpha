@@ -1,45 +1,22 @@
-"""Financial Analysis Agent: computes each required metric in the code executor and values the company."""
+"""Financial Analysis Agent: computes each required metric in the code executor."""
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field
-
-from app.llm import ask_structured
-from app.state import Citation, FinancialMetricResult, InvestmentAgentState, ValuationAssumptions
+from app.agents.schemas import run_step
+from app.state import FinancialMetricResult, InvestmentAgentState
 from app.tools.code_executor import run_python
-from app.tools.valuation import value_company
 
-SYSTEM = """You are a buy-side financial analyst. Using only the provided source documents,
-compute each required metric. For every metric, write a short standalone Python script
-(standard library only) that hard-codes the input figures from the documents and prints only
-the final numeric value. Add a citation for every figure you use, quoting the snippet it came
-from. If the documents lack the inputs for a metric, omit that metric rather than estimating.
-Documents may come from several companies; check each document's company before using it.
-
-Then set the valuation assumptions for a DCF and a P/E target price:
-- Reported figures (free cash flow = operating cash flow minus capex, diluted shares, cash and
-  marketable securities, debt, trailing EPS) must come from the target company's latest filings
-  and be cited.
-- Projections (5 years of FCF growth, terminal growth, discount rate, forward EPS, target P/E,
-  DCF weight) are your judgment. Justify each in the rationale using the filings: recent growth,
-  margins, concentration, capital intensity, and what peer filings show about demand.
-- No market prices are in the documents. Do not claim a current share price or a peer's P/E;
-  justify the multiple from growth, profitability and risk instead.
-Express FCF, cash and debt in USD millions and shares in millions."""
-
-
-class _MetricDraft(BaseModel):
-    metric_name: str
-    formula_used: str = Field(description="Formula in words or symbols, e.g. 'EBITDA / Revenue'")
-    code: str = Field(description="Python script that prints only the metric's numeric value")
-
-
-class _AnalysisDraft(BaseModel):
-    metrics: List[_MetricDraft]
-    citations: List[Citation]
-    valuation: ValuationAssumptions
+SYSTEM = """You are a buy-side financial analyst. Using the provided filing pages, SEC-reported
+financials and sourced web research notes, compute each required metric. For every metric, write a
+short standalone Python script (standard library only) that hard-codes the input figures and prints
+only the final numeric value. Add a citation for every figure: for filing pages use the source_doc
+and page_number; for web research use the source id (e.g. "S4") as source_doc and 0 as page_number;
+for SEC-reported financials use "SEC XBRL" and 0. If no source supports a metric's inputs, omit
+the metric rather than estimating. Documents may come from several companies; check each
+document's company before using it."""
 
 
 def format_documents(docs: List[Dict[str, Any]]) -> str:
@@ -53,6 +30,24 @@ def format_documents(docs: List[Dict[str, Any]]) -> str:
     )
 
 
+def shared_evidence(state: InvestmentAgentState) -> str:
+    """Evidence block shared (and prompt-cached) by every step after retrieval.
+
+    Must be byte-identical across steps: it only reads state that is fixed once retrieval
+    finishes, and serializes deterministically (sorted keys, stable order).
+    """
+    sources = "\n".join(f"[{s.source_id}] {s.title} — {s.url}" for s in state.get("sources") or []) or "(none)"
+    return (
+        f"<company>{state['company_name']} ({state.get('ticker') or ''})</company>\n"
+        f"<question>{state['user_query']}</question>\n\n"
+        f"<sec_reported_financials>\n{json.dumps(state.get('reported_financials') or {}, indent=1, sort_keys=True)}\n"
+        f"</sec_reported_financials>\n\n"
+        f"<sources>\n{sources}\n</sources>\n\n"
+        f"<web_research_notes>\n{state.get('research_notes') or '(none)'}\n</web_research_notes>\n\n"
+        f"<filing_pages>\n{format_documents(state['retrieved_docs'])}\n</filing_pages>"
+    )
+
+
 def _append_error(state: InvestmentAgentState, update: dict, issue: str) -> None:
     previous = update.get("error") or state.get("error")
     update["error"] = f"{previous}\n{issue}" if previous else issue
@@ -60,19 +55,8 @@ def _append_error(state: InvestmentAgentState, update: dict, issue: str) -> None
 
 def analysis_node(state: InvestmentAgentState) -> dict:
     plan = state["plan"]
-    price = state.get("current_price")
-    price_line = (
-        f"Current share price (user-provided): ${price:,.2f}" if price
-        else "Current share price: not provided"
-    )
-    prompt = (
-        f"Target company: {state['company_name']}\n"
-        f"Question: {state['user_query']}\n"
-        f"{price_line}\n"
-        f"Required metrics: {', '.join(plan.required_metrics)}\n\n"
-        f"Source documents:\n{format_documents(state['retrieved_docs'])}"
-    )
-    draft = ask_structured(SYSTEM, prompt, _AnalysisDraft)
+    prompt = f"Required metrics: {', '.join(plan.required_metrics)}"
+    draft = run_step("analysis", SYSTEM, prompt, state, shared_evidence(state))
 
     results: List[FinancialMetricResult] = []
     failures: List[str] = []
@@ -95,16 +79,7 @@ def analysis_node(state: InvestmentAgentState) -> dict:
             )
         )
 
-    update: dict = {
-        "financial_results": results,
-        "citations": draft.citations,
-        "valuation": None,
-        "current_step": "analysis",
-    }
+    update: dict = {"financial_results": results, "citations": draft.citations, "current_step": "analysis"}
     if failures:
         _append_error(state, update, "Metric calculation failed for " + "; ".join(failures))
-    try:
-        update["valuation"] = value_company(draft.valuation, current_price=price)
-    except ValueError as exc:
-        _append_error(state, update, f"Valuation failed: {exc}")
     return update
