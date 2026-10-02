@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import threading
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -49,10 +50,14 @@ class InMemoryIndex:
         self._embedder: Optional[Embedder] = None
         self._window_vectors: Optional[np.ndarray] = None  # (n_windows, dim)
         self._window_owner: Optional[np.ndarray] = None  # entry index per window
+        self._cache_path: Optional[Path] = None
+        self._doc_ids: set = set()
+        self.lock = threading.RLock()  # guards adds while requests are searching
 
     def add(self, doc_id: str, content: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         terms = Counter(_tokenize(content))
         self._entries.append(_Entry(doc_id, content, metadata or {}, terms))
+        self._doc_ids.add(doc_id)
         self._df.update(terms.keys())
         self._window_vectors = None  # embeddings are stale until build_embeddings() runs again
 
@@ -65,9 +70,18 @@ class InMemoryIndex:
                 windows.append(window)
                 owners.append(i)
         self._embedder = embedder
+        self._cache_path = cache_path
         self._window_vectors = embed_with_cache(embedder, windows, cache_path)
         self._window_owner = np.asarray(owners)
         return len(windows)
+
+    def contains(self, doc_id: str) -> bool:
+        return doc_id in self._doc_ids
+
+    def refresh_embeddings(self) -> None:
+        """Re-embed after adds, reusing the cache so only new text is embedded."""
+        if self._embedder is not None:
+            self.build_embeddings(self._embedder, self._cache_path)
 
     @property
     def has_embeddings(self) -> bool:
@@ -86,6 +100,10 @@ class InMemoryIndex:
         Each result is {"doc_id", "content", "metadata", "score"}; `score` is the RRF
         score when embeddings are built, otherwise the BM25 score.
         """
+        with self.lock:
+            return self._search(query, filters, top_k)
+
+    def _search(self, query: str, filters: Optional[Dict[str, List[Any]]], top_k: int) -> List[Dict[str, Any]]:
         candidates = [i for i, e in enumerate(self._entries) if _matches(e.metadata, filters or {})]
         if not candidates:
             return []
@@ -202,10 +220,41 @@ def load_filings(
                 count += 1
 
     embedder = embedder or get_default_embedder()
-    if count and embedder is not None:
+    if embedder is not None:
         cache = directory / ".embeddings" / f"{re.sub(r'[^A-Za-z0-9._-]', '_', embedder.name)}.npz"
         index.build_embeddings(embedder, cache_path=cache)
     return count
+
+
+def register_company(company: str, ticker: Optional[str] = None) -> None:
+    _COMPANY_ALIASES.setdefault(company.lower(), company)
+    if ticker:
+        _COMPANY_ALIASES.setdefault(ticker.lower(), company)
+
+
+def register_alias(alias: str, company: str) -> None:
+    """Map an extra name (e.g. what the user typed) to a canonical company."""
+    _COMPANY_ALIASES[alias.strip().lower()] = company
+
+
+def add_filing_files(paths: List[Path], index: InMemoryIndex = default_index) -> int:
+    """Add chunk files to a live index (skipping chunks already loaded) and embed the new text."""
+    added = 0
+    with index.lock:
+        for path in paths:
+            with Path(path).open() as f:
+                for line in f:
+                    chunk = json.loads(line)
+                    if index.contains(chunk["doc_id"]):
+                        continue
+                    metadata = chunk.get("metadata", {})
+                    index.add(chunk["doc_id"], chunk["content"], metadata)
+                    if "company" in metadata:
+                        register_company(metadata["company"], metadata.get("ticker"))
+                    added += 1
+        if added:
+            index.refresh_embeddings()
+    return added
 
 
 def rag_search(

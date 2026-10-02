@@ -1,0 +1,378 @@
+<title>Moderna (MRNA) Research Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column of an equity research note, with wide exhibits allowed to break out to 880px. */
+:root {
+  --paper: #f7f8f8;
+  --ink: #15191c;
+  --ink-2: #4a5359;
+  --rule: #d5dadd;
+  --panel: #eceff0;
+  --accent: #0f5c6e;      /* deep petrol: rating and key figures */
+  --sell: #b3261e;
+  --pos: #2a78d6;         /* diverging pair (dataviz reference) */
+  --neg: #e34948;
+  --street: #8a949a;
+  --font-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #121517; --ink: #e8ecee; --ink-2: #a5afb5; --rule: #2c3338; --panel: #1b2024;
+    --accent: #5fb6c9; --sell: #f2817a; --pos: #3987e5; --neg: #e66767; --street: #7c878d;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #121517; --ink: #e8ecee; --ink-2: #a5afb5; --rule: #2c3338; --panel: #1b2024;
+  --accent: #5fb6c9; --sell: #f2817a; --pos: #3987e5; --neg: #e66767; --street: #7c878d;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 17px/1.6 var(--font-body); padding-inline: 20px; }
+.wrap { max-width: 880px; margin: 0 auto; padding-block: 40px 72px; }
+.col { max-width: 680px; }
+h1, h2, h3 { font-family: var(--font-display); font-stretch: 85%; line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: 2.6rem; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 1.55rem; font-weight: 700; margin-top: 56px; padding-top: 14px; border-top: 2px solid var(--ink); }
+h3 { font-size: 1.1rem; font-weight: 700; margin-top: 28px; }
+p, li { max-width: 68ch; }
+a { color: var(--accent); }
+a:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font: 500 0.78rem/1 var(--font-data); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.dek { font-size: 1.2rem; color: var(--ink-2); margin-top: 12px; }
+.masthead { display: grid; gap: 10px; }
+.ticket { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin-top: 28px; }
+.ticket > div { background: var(--paper); padding: 14px 16px; display: grid; gap: 6px; }
+.ticket .k { font: 500 0.72rem/1 var(--font-data); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.ticket .v { font: 700 1.6rem/1.1 var(--font-display); font-stretch: 85%; font-variant-numeric: tabular-nums; }
+.ticket .v.sell { color: var(--sell); }
+.ticket .s { font: 0.82rem/1.3 var(--font-data); color: var(--ink-2); }
+.callout { background: var(--panel); padding: 18px 22px; margin-top: 24px; border-left: 4px solid var(--accent); }
+.callout p { margin: 0; }
+.big { font: 700 1.25rem/1.4 var(--font-display); font-stretch: 90%; }
+.n, td.n, th.n { font-family: var(--font-data); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.strong { font-weight: 600; color: var(--ink); }
+.muted { color: var(--ink-2); }
+.tablewrap { overflow-x: auto; margin-top: 16px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.86rem; line-height: 1.4; }
+th { font: 500 0.72rem/1.3 var(--font-data); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); text-align: left; padding: 8px 10px; border-bottom: 1.5px solid var(--ink); vertical-align: bottom; }
+td { padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+td.name { font-weight: 600; min-width: 220px; }
+tr.total td { border-top: 1.5px solid var(--ink); font-weight: 600; }
+figure { margin: 22px 0 0; }
+figcaption { font: 0.8rem/1.45 var(--font-data); color: var(--ink-2); margin-top: 8px; max-width: 80ch; }
+.chartwrap { overflow-x: auto; }
+.chart { width: 100%; min-width: 620px; height: auto; display: block; }
+.chart .grid { stroke: var(--rule); stroke-width: 1; }
+.chart .zero { stroke: var(--ink); stroke-width: 1.5; }
+.chart .tick, .chart .cap { font: 11px var(--font-data); fill: var(--ink-2); }
+.chart .lbl { font: 600 12px var(--font-display); fill: var(--ink); }
+.chart .val { font: 500 11.5px var(--font-data); fill: var(--ink); }
+.chart .pos { fill: var(--pos); }
+.chart .neg { fill: var(--neg); }
+.chart .hit { fill: transparent; }
+.chart .bar:hover .hit, .chart .bar:focus .hit { fill: var(--panel); }
+.chart .range { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; opacity: 0.45; }
+.chart .ours { fill: var(--paper); stroke: var(--accent); stroke-width: 2.5; }
+.chart .target { fill: var(--accent); stroke: var(--paper); stroke-width: 2; }
+.chart .street { fill: var(--street); stroke: var(--paper); stroke-width: 2; }
+.chart .price { stroke: var(--sell); stroke-width: 2; stroke-dasharray: 5 4; }
+.chart .pricelbl { font: 600 12px var(--font-data); fill: var(--sell); }
+.timeline { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 0; }
+.timeline li { display: grid; grid-template-columns: 150px 1fr 110px; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--rule); max-width: none; }
+.timeline .when { font: 500 0.8rem/1.4 var(--font-data); color: var(--ink-2); }
+.timeline .what strong { font-family: var(--font-display); font-stretch: 90%; }
+.chip { justify-self: start; align-self: start; font: 500 0.7rem/1 var(--font-data); letter-spacing: 0.05em; text-transform: uppercase; padding: 5px 8px; border: 1px solid currentColor; border-radius: 3px; }
+.chip.up { color: var(--pos); } .chip.down { color: var(--neg); } .chip.both { color: var(--ink-2); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; }
+.sources { font-size: 0.85rem; line-height: 1.5; }
+.sources li { margin-bottom: 6px; max-width: none; }
+.disclaimer { font: 0.8rem/1.5 var(--font-data); color: var(--ink-2); margin-top: 48px; border-top: 1px solid var(--rule); padding-top: 14px; }
+@media (max-width: 560px) {
+  h1 { font-size: 2rem; }
+  .timeline li { grid-template-columns: 1fr; gap: 6px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="eyebrow">Equity research · Biotechnology · Priced at close, Oct 1, 2026</div>
+    <h1>Moderna (MRNA): the cancer vaccine works, the price assumes it works everywhere</h1>
+    <p class="dek col">INTerpath-001 is a real scientific win. At $188.94 the market is paying for a pan-tumor blockbuster that the pipeline, the Merck profit split and the timelines cannot deliver on any reasonable probability. We rate the shares a Sell.</p>
+  </header>
+
+  <div class="ticket" role="group" aria-label="Rating summary">
+    <div><span class="k">Rating</span><span class="v sell">Sell</span><span class="s">12-month horizon</span></div>
+    <div><span class="k">Price target</span><span class="v">$27</span><span class="s">-86% vs $188.94</span></div>
+    <div><span class="k">Bear · Bull</span><span class="v">$8 · $57</span><span class="s">Bull case is still −70%</span></div>
+    <div><span class="k">Market cap · EV</span><span class="v">$76.5B · $72.1B</span><span class="s">405M diluted shares</span></div>
+  </div>
+
+  <div class="col">
+    <h2>Summary</h2>
+    <ul>
+      <li><strong>The melanoma result is genuine.</strong> On Aug 19, 2026 Merck and Moderna reported that the Phase 3 INTerpath-001 trial of intismeran plus Keytruda met its primary endpoint (recurrence-free survival) and key secondary endpoint (distant metastasis-free survival) at the first interim analysis. It is the first positive Phase 3 for an mRNA cancer therapy. The hazard ratio has not been disclosed.</li>
+      <li><strong>The stock has priced in far more than melanoma.</strong> Shares rose from a 52-week low of $22.28 to $188.94, a $77B market cap. Every published sell-side target we found is below the price (Citi $80 Sell, consensus $121, high $135).</li>
+      <li><strong>Our sum-of-the-parts DCF is $20.82 per share today; 20x risk-adjusted 2032 EPS gives $31.08.</strong> Blending the 12-month DCF ($22.91) and the P/E value gives a $27 target.</li>
+      <li><strong>Moderna keeps only half of intismeran.</strong> Costs and profits are split 50/50 with Merck worldwide, and individualized manufacturing keeps margins well below a typical antibody.</li>
+      <li><strong>The legacy business is shrinking and the balance sheet is thinner than it looks.</strong> 2025 revenue was $1.94B with $1.87B of operating cash burn. Pro forma net cash is about $10.99 per share after the $3.0B convertible, with up to $1.3B more owed if a patent appeal is lost.</li>
+    </ul>
+
+    <div class="callout">
+      <p class="big">To justify $188.94, intismeran would need roughly $86B of global peak sales across tumor types, with every trial succeeding.</p>
+      <p>Our base case sums to $11.5B across all nine trial indications before risk adjustment. Keytruda, the best-selling drug in the world, sold $31.7B in 2025. Holding everything else at our base case, the market price requires intismeran to become several Keytrudas.</p>
+    </div>
+  </div>
+
+  <h2>What the price is paying for</h2>
+  <p class="col">Each bar is a program's risk-adjusted NPV to Moderna, per diluted share, at a 10% discount rate. The bars sum to our $20.82 DCF value. Hover or focus a bar for its group.</p>
+  <figure>
+    <div class="chartwrap"><svg viewBox="0 0 780 564" role="img" aria-labelledby="c1t" class="chart"><title id="c1t">Contribution of each program to value per share</title>
+<line x1="260.0" y1="8" x2="260.0" y2="536" class="grid"/>
+<text x="260.0" y="554" class="tick" text-anchor="middle">−$20.00</text>
+<line x1="318.0" y1="8" x2="318.0" y2="536" class="grid"/>
+<text x="318.0" y="554" class="tick" text-anchor="middle">−$16.00</text>
+<line x1="376.0" y1="8" x2="376.0" y2="536" class="grid"/>
+<text x="376.0" y="554" class="tick" text-anchor="middle">−$12.00</text>
+<line x1="434.0" y1="8" x2="434.0" y2="536" class="grid"/>
+<text x="434.0" y="554" class="tick" text-anchor="middle">−$8.00</text>
+<line x1="492.0" y1="8" x2="492.0" y2="536" class="grid"/>
+<text x="492.0" y="554" class="tick" text-anchor="middle">−$4.00</text>
+<line x1="550.0" y1="8" x2="550.0" y2="536" class="grid"/>
+<text x="550.0" y="554" class="tick" text-anchor="middle">$0</text>
+<line x1="608.0" y1="8" x2="608.0" y2="536" class="grid"/>
+<text x="608.0" y="554" class="tick" text-anchor="middle">$4.00</text>
+<line x1="666.0" y1="8" x2="666.0" y2="536" class="grid"/>
+<text x="666.0" y="554" class="tick" text-anchor="middle">$8.00</text>
+<line x1="724.0" y1="8" x2="724.0" y2="536" class="grid"/>
+<text x="724.0" y="554" class="tick" text-anchor="middle">$12.00</text>
+<g class="bar" tabindex="0"><title>Net cash (after $3.0B convert, $0.6B loan): $10.99 per share (Balance sheet & overhead)</title><rect x="252" y="7" width="528" height="26" class="hit"/><text x="248" y="23" class="lbl" text-anchor="end">Net cash (pro forma)</text><rect x="550.0" y="12" width="159.3" height="18" rx="3" class="pos"/><text x="715.3" y="23" class="val" text-anchor="start">$10.99</text></g>
+<g class="bar" tabindex="0"><title>Spikevax + mNEXSPIKE (COVID): $6.90 per share (COVID)</title><rect x="252" y="33" width="528" height="26" class="hit"/><text x="248" y="49" class="lbl" text-anchor="end">COVID (Spikevax, mNEXSPIKE)</text><rect x="550.0" y="38" width="100.1" height="18" rx="3" class="pos"/><text x="656.1" y="49" class="val" text-anchor="start">$6.90</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: adjuvant melanoma (INTerpath-001): $6.35 per share (Intismeran)</title><rect x="252" y="59" width="528" height="26" class="hit"/><text x="248" y="75" class="lbl" text-anchor="end">Intismeran · adj. melanoma (001)</text><rect x="550.0" y="64" width="92.1" height="18" rx="3" class="pos"/><text x="648.1" y="75" class="val" text-anchor="start">$6.35</text></g>
+<g class="bar" tabindex="0"><title>mFLUSIVA (seasonal flu, adults 50+): $5.26 per share (Flu)</title><rect x="252" y="85" width="528" height="26" class="hit"/><text x="248" y="101" class="lbl" text-anchor="end">Flu (mFLUSIVA)</text><rect x="550.0" y="90" width="76.2" height="18" rx="3" class="pos"/><text x="632.2" y="101" class="val" text-anchor="start">$5.26</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: adjuvant NSCLC stage II-IIIB (INTerpath-002): $2.79 per share (Intismeran)</title><rect x="252" y="111" width="528" height="26" class="hit"/><text x="248" y="127" class="lbl" text-anchor="end">Intismeran · adj. NSCLC II–IIIB (002)</text><rect x="550.0" y="116" width="40.5" height="18" rx="3" class="pos"/><text x="596.5" y="127" class="val" text-anchor="start">$2.79</text></g>
+<g class="bar" tabindex="0"><title>mCOMBRIAX (flu + COVID combo): $1.70 per share (Flu)</title><rect x="252" y="137" width="528" height="26" class="hit"/><text x="248" y="153" class="lbl" text-anchor="end">Flu + COVID combo (mCOMBRIAX)</text><rect x="550.0" y="142" width="24.7" height="18" rx="3" class="pos"/><text x="580.7" y="153" class="val" text-anchor="start">$1.70</text></g>
+<g class="bar" tabindex="0"><title>mRESVIA (RSV): $1.34 per share (Other respiratory)</title><rect x="252" y="163" width="528" height="26" class="hit"/><text x="248" y="179" class="lbl" text-anchor="end">RSV (mRESVIA)</text><rect x="550.0" y="168" width="19.4" height="18" rx="3" class="pos"/><text x="575.4" y="179" class="val" text-anchor="start">$1.34</text></g>
+<g class="bar" tabindex="0"><title>mRNA-1403 (norovirus): $0.92 per share (Other respiratory)</title><rect x="252" y="189" width="528" height="26" class="hit"/><text x="248" y="205" class="lbl" text-anchor="end">Norovirus (mRNA-1403)</text><rect x="550.0" y="194" width="13.4" height="18" rx="3" class="pos"/><text x="569.4" y="205" class="val" text-anchor="start">$0.92</text></g>
+<g class="bar" tabindex="0"><title>mRNA-3927 (propionic acidemia): $0.92 per share (Rare disease)</title><rect x="252" y="215" width="528" height="26" class="hit"/><text x="248" y="231" class="lbl" text-anchor="end">Propionic acidemia (mRNA-3927)</text><rect x="550.0" y="220" width="13.3" height="18" rx="3" class="pos"/><text x="569.3" y="231" class="val" text-anchor="start">$0.92</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: adjuvant RCC (INTerpath-004): $0.15 per share (Intismeran)</title><rect x="252" y="241" width="528" height="26" class="hit"/><text x="248" y="257" class="lbl" text-anchor="end">Intismeran · adj. kidney (004)</text><rect x="550.0" y="246" width="2.1" height="18" rx="3" class="pos"/><text x="558.1" y="257" class="val" text-anchor="start">$0.15</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: 1L advanced melanoma (INTerpath-012): $0.04 per share (Intismeran)</title><rect x="252" y="267" width="528" height="26" class="hit"/><text x="248" y="283" class="lbl" text-anchor="end">Intismeran · 1L melanoma (012)</text><rect x="550.0" y="272" width="1.5" height="18" rx="3" class="pos"/><text x="556.6" y="283" class="val" text-anchor="start">$0.04</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: 1L metastatic squamous NSCLC (INTerpath-013): −$0.03 per share (Intismeran)</title><rect x="252" y="293" width="528" height="26" class="hit"/><text x="248" y="309" class="lbl" text-anchor="end">Intismeran · 1L sq. NSCLC (013)</text><rect x="549.5" y="298" width="1.5" height="18" rx="3" class="neg"/><text x="543.5" y="309" class="val" text-anchor="end">−$0.03</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: NSCLC non-pCR post-neoadjuvant (INTerpath-009): −$0.05 per share (Intismeran)</title><rect x="252" y="319" width="528" height="26" class="hit"/><text x="248" y="335" class="lbl" text-anchor="end">Intismeran · NSCLC non-pCR (009)</text><rect x="549.2" y="324" width="1.5" height="18" rx="3" class="neg"/><text x="543.2" y="335" class="val" text-anchor="end">−$0.05</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: muscle-invasive bladder (INTerpath-005): −$0.12 per share (Intismeran)</title><rect x="252" y="345" width="528" height="26" class="hit"/><text x="248" y="361" class="lbl" text-anchor="end">Intismeran · MIBC bladder (005)</text><rect x="548.3" y="350" width="1.7" height="18" rx="3" class="neg"/><text x="542.3" y="361" class="val" text-anchor="end">−$0.12</text></g>
+<g class="bar" tabindex="0"><title>mRNA-4359 (checkpoint cancer therapy): −$0.17 per share (Other oncology)</title><rect x="252" y="371" width="528" height="26" class="hit"/><text x="248" y="387" class="lbl" text-anchor="end">mRNA-4359 (checkpoint)</text><rect x="547.6" y="376" width="2.4" height="18" rx="3" class="neg"/><text x="541.6" y="387" class="val" text-anchor="end">−$0.17</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: high-risk NMIBC (INTerpath-011): −$0.21 per share (Intismeran)</title><rect x="252" y="397" width="528" height="26" class="hit"/><text x="248" y="413" class="lbl" text-anchor="end">Intismeran · NMIBC bladder (011)</text><rect x="546.9" y="402" width="3.1" height="18" rx="3" class="neg"/><text x="540.9" y="413" class="val" text-anchor="end">−$0.21</text></g>
+<g class="bar" tabindex="0"><title>mRNA-3705 (methylmalonic acidemia): −$0.22 per share (Rare disease)</title><rect x="252" y="423" width="528" height="26" class="hit"/><text x="248" y="439" class="lbl" text-anchor="end">MMA (mRNA-3705)</text><rect x="546.8" y="428" width="3.2" height="18" rx="3" class="neg"/><text x="540.8" y="439" class="val" text-anchor="end">−$0.22</text></g>
+<g class="bar" tabindex="0"><title>Intismeran: high-risk stage I NSCLC (INTerpath-014): −$0.24 per share (Intismeran)</title><rect x="252" y="449" width="528" height="26" class="hit"/><text x="248" y="465" class="lbl" text-anchor="end">Intismeran · stage I NSCLC (014)</text><rect x="546.5" y="454" width="3.5" height="18" rx="3" class="neg"/><text x="540.5" y="465" class="val" text-anchor="end">−$0.24</text></g>
+<g class="bar" tabindex="0"><title>Arbutus/Genevant contingent payment (35% × $1.3B): −$1.12 per share (Balance sheet & overhead)</title><rect x="252" y="475" width="528" height="26" class="hit"/><text x="248" y="491" class="lbl" text-anchor="end">Patent contingency (35% × $1.3B)</text><rect x="533.7" y="480" width="16.3" height="18" rx="3" class="neg"/><text x="527.7" y="491" class="val" text-anchor="end">−$1.12</text></g>
+<g class="bar" tabindex="0"><title>Platform &amp; corporate overhead: −$14.36 per share (Balance sheet & overhead)</title><rect x="252" y="501" width="528" height="26" class="hit"/><text x="248" y="517" class="lbl" text-anchor="end">Platform &amp; corporate overhead</text><rect x="341.7" y="506" width="208.3" height="18" rx="3" class="neg"/><text x="335.7" y="517" class="val" text-anchor="end">−$14.36</text></g>
+<line x1="550.0" y1="6" x2="550.0" y2="536" class="zero"/></svg></div>
+    <figcaption>Exhibit 1. Risk-adjusted value per share by program, plus overhead and balance sheet items. Blue adds value, red subtracts it. Early intismeran trials show negative values because Moderna funds half of their remaining cost before any revenue arrives. Source: our model; probabilities and inputs in Exhibits 3 and 4.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="chartwrap"><svg viewBox="0 0 760 210" role="img" aria-labelledby="c2t" class="chart"><title id="c2t">Our value range and Street targets versus the share price</title>
+<line x1="150.0" y1="14" x2="150.0" y2="180" class="grid"/><text x="150.0" y="198" class="tick" text-anchor="middle">$0</text>
+<line x1="222.5" y1="14" x2="222.5" y2="180" class="grid"/><text x="222.5" y="198" class="tick" text-anchor="middle">$25</text>
+<line x1="295.0" y1="14" x2="295.0" y2="180" class="grid"/><text x="295.0" y="198" class="tick" text-anchor="middle">$50</text>
+<line x1="367.5" y1="14" x2="367.5" y2="180" class="grid"/><text x="367.5" y="198" class="tick" text-anchor="middle">$75</text>
+<line x1="440.0" y1="14" x2="440.0" y2="180" class="grid"/><text x="440.0" y="198" class="tick" text-anchor="middle">$100</text>
+<line x1="512.5" y1="14" x2="512.5" y2="180" class="grid"/><text x="512.5" y="198" class="tick" text-anchor="middle">$125</text>
+<line x1="585.0" y1="14" x2="585.0" y2="180" class="grid"/><text x="585.0" y="198" class="tick" text-anchor="middle">$150</text>
+<line x1="657.5" y1="14" x2="657.5" y2="180" class="grid"/><text x="657.5" y="198" class="tick" text-anchor="middle">$175</text>
+<line x1="730.0" y1="14" x2="730.0" y2="180" class="grid"/><text x="730.0" y="198" class="tick" text-anchor="middle">$200</text>
+<text x="138" y="52" class="lbl" text-anchor="end">This note</text><text x="138" y="122" class="lbl" text-anchor="end">Sell-side</text>
+<line x1="173.9" y1="47" x2="316.0" y2="47" class="range"/>
+<g class="dot" tabindex="0"><title>Our bear case: $8</title><circle cx="173.9" cy="47" r="6" class="ours"/><text x="173.9" y="33" class="val" text-anchor="middle">$8</text><text x="173.9" y="71" class="cap" text-anchor="middle">bear case</text></g>
+<g class="dot" tabindex="0"><title>Our 12-month target: $27</title><circle cx="228.3" cy="47" r="8" class="target"/><text x="228.3" y="33" class="val" text-anchor="middle">$27</text><text x="228.3" y="71" class="cap" text-anchor="middle">12-month target</text></g>
+<g class="dot" tabindex="0"><title>Our bull case: $57</title><circle cx="316.0" cy="47" r="6" class="ours"/><text x="316.0" y="33" class="val" text-anchor="middle">$57</text><text x="316.0" y="71" class="cap" text-anchor="middle">bull case</text></g>
+<g class="dot" tabindex="0"><title>Citi (Sell): $80</title><circle cx="382.0" cy="117" r="6" class="street"/><text x="382.0" y="103" class="val" text-anchor="middle">$80</text><text x="382.0" y="141" class="cap" text-anchor="middle">Citi (Sell)</text></g>
+<g class="dot" tabindex="0"><title>Street consensus: $121</title><circle cx="499.9" cy="117" r="6" class="street"/><text x="499.9" y="103" class="val" text-anchor="middle">$121</text><text x="499.9" y="141" class="cap" text-anchor="middle">consensus</text></g>
+<g class="dot" tabindex="0"><title>Street high: $135</title><circle cx="541.5" cy="117" r="6" class="street"/><text x="541.5" y="103" class="val" text-anchor="middle">$135</text><text x="541.5" y="141" class="cap" text-anchor="middle">high</text></g>
+<line x1="697.9" y1="10" x2="697.9" y2="180" class="price"/><text x="691.9" y="24" class="pricelbl" text-anchor="end">Price $188.94</text></svg></div>
+    <figcaption>Exhibit 2. Our bear/base/bull range and sell-side targets against the Oct 1 close. Even our bull case and the highest Street target sit well below the price. Street targets: Citi via MarketBeat; consensus and high via Yahoo Finance, Oct 1, 2026.</figcaption>
+  </figure>
+
+  <h2>Valuation</h2>
+  <div class="col">
+    <h3>Method 1: Sum-of-the-parts DCF (risk-adjusted NPV)</h3>
+    <p>Each program is modelled from launch through 2045: sales ramp, peak, decline after exclusivity, a launch-to-peak margin ramp, and remaining development cost. Cash flows are multiplied by the program's probability of success. Development spending before the pivotal readout is counted in full, and spending after it is probability-weighted. Moderna books 50% of intismeran economics. We then subtract platform and corporate overhead ($-14.36 per share) and the expected cost of the Arbutus/Genevant contingency ($-1.12), and add pro forma net cash ($10.99). Discount rate 10%. NOLs shield taxes through 2031, then 15%.</p>
+    <p>Total: <strong>$20.82 per share today</strong>, or $22.91 rolled forward 12 months. With every program assumed to succeed (no risk adjustment) the same model gives $39.87.</p>
+
+    <h3>Method 2: P/E on risk-adjusted earnings</h3>
+    <p>Probability-weighted operating income is still negative in 2028 ($-984M), turns slightly positive in 2030 ($231M) and reaches $1,149M in 2032 as flu, the combination vaccine and intismeran mature. We use 2032, the first year near steady state, because 2030 earnings are mostly launch costs. Risk-adjusted 2032 EPS of $2.33 on 419M fully diluted shares, at 20x (a large-cap biotech with growth), discounted back to October 2027 at 10%, gives <strong>$31.08</strong>. At 25x it is $38.85.</p>
+
+    <h3>Price target</h3>
+    <p>50% DCF ($22.91) and 50% P/E ($31.08) gives <strong>$27</strong>.</p>
+  </div>
+
+  <h3>Scenarios</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Scenario</th><th>Key assumptions</th><th class="n">DCF</th><th class="n">P/E (20x)</th><th class="n">2032 EPS</th><th class="n">Blend (12m)</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Bear</td><td>Melanoma peaks at $1.5B; other intismeran peaks −40% and success rates −10 pts; flu $0.6B peak with 60% adoption; COVID sales fall 15% a year</td><td class="n">$7.05</td><td class="n">$8.74</td><td class="n">$0.66</td><td class="n strong">$8</td></tr>
+      <tr><td class="name">Base</td><td>Exhibits 3 and 4</td><td class="n">$20.82</td><td class="n">$31.08</td><td class="n">$2.33</td><td class="n strong">$27</td></tr>
+      <tr><td class="name">Bull</td><td>Melanoma peaks at $5.0B (close to William Blair's $5.4B); other intismeran peaks +60% and success rates +15 pts; flu $2.0B peak; combo $1.0B at 80%</td><td class="n">$43.24</td><td class="n">$66.90</td><td class="n">$5.02</td><td class="n strong">$57</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="two">
+    <div>
+      <h3>DCF vs discount rate</h3>
+      <div class="tablewrap"><table><thead><tr><th>8%</th><th>9%</th><th>10%</th><th>11%</th><th>12%</th></tr></thead><tbody><tr><td class="n">$24.25</td><td class="n">$22.44</td><td class="n strong">$20.82</td><td class="n">$19.39</td><td class="n">$18.12</td></tr></tbody></table></div>
+    </div>
+    <div>
+      <h3>DCF vs melanoma peak sales (global)</h3>
+      <div class="tablewrap"><table><thead><tr><th>$1.5B</th><th>$2.5B</th><th>$4.0B</th><th>$5.4B</th><th>$8.0B</th></tr></thead><tbody><tr><td class="n">$18.07</td><td class="n strong">$20.82</td><td class="n">$24.95</td><td class="n">$28.81</td><td class="n">$35.97</td></tr></tbody></table></div>
+    </div>
+  </div>
+  <h3>DCF vs platform and corporate overhead</h3>
+  <div class="tablewrap" style="max-width:420px"><table><thead><tr><th>$300M/yr</th><th>$550M/yr</th><th>$800M/yr</th></tr></thead><tbody><tr><td class="n">$25.55</td><td class="n strong">$20.82</td><td class="n">$16.10</td></tr></tbody></table></div>
+
+  <h2>Program by program</h2>
+  <p class="col">Peak sales are global for the indication. For intismeran, Moderna's share of profit is 50%. Unrisked value assumes the program succeeds.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Program</th><th>Stage</th><th class="n">PoS</th><th class="n">Launch</th><th class="n">Peak sales</th><th>Moderna share</th><th class="n">rNPV ($M)</th><th class="n">Per share</th><th class="n">Unrisked</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Spikevax + mNEXSPIKE (COVID)</td><td>Marketed</td><td class="n">100%</td><td class="n">2020</td><td class="n">—</td><td>100%</td><td class="n">$2,796</td><td class="n strong">$6.90</td><td class="n muted">$6.90</td></tr>
+<tr><td class="name">Intismeran: adjuvant melanoma (INTerpath-001)</td><td>Phase 3 positive (Aug 2026)</td><td class="n">90%</td><td class="n">2027</td><td class="n">$2.5B</td><td>50% (Merck)</td><td class="n">$2,573</td><td class="n strong">$6.35</td><td class="n muted">$7.09</td></tr>
+<tr><td class="name">mFLUSIVA (seasonal flu, adults 50+)</td><td>Approved Aug 2026</td><td class="n">80%</td><td class="n">2026</td><td class="n">$1.2B</td><td>100%</td><td class="n">$2,130</td><td class="n strong">$5.26</td><td class="n muted">$6.57</td></tr>
+<tr><td class="name">Intismeran: adjuvant NSCLC stage II-IIIB (INTerpath-002)</td><td>Phase 3</td><td class="n">50%</td><td class="n">2029</td><td class="n">$3.0B</td><td>50% (Merck)</td><td class="n">$1,130</td><td class="n strong">$2.79</td><td class="n muted">$6.28</td></tr>
+<tr><td class="name">mCOMBRIAX (flu + COVID combo)</td><td>EU approved; US refile pending</td><td class="n">60%</td><td class="n">2027</td><td class="n">$0.6B</td><td>100%</td><td class="n">$689</td><td class="n strong">$1.70</td><td class="n muted">$2.84</td></tr>
+<tr><td class="name">mRESVIA (RSV)</td><td>Marketed</td><td class="n">100%</td><td class="n">2024</td><td class="n">$0.3B</td><td>100%</td><td class="n">$542</td><td class="n strong">$1.34</td><td class="n muted">$1.34</td></tr>
+<tr><td class="name">mRNA-1403 (norovirus)</td><td>Phase 3 (missed interim)</td><td class="n">35%</td><td class="n">2029</td><td class="n">$1.0B</td><td>100%</td><td class="n">$373</td><td class="n strong">$0.92</td><td class="n muted">$3.19</td></tr>
+<tr><td class="name">mRNA-3927 (propionic acidemia)</td><td>Registrational, enrolled</td><td class="n">50%</td><td class="n">2028</td><td class="n">$0.4B</td><td>100%</td><td class="n">$371</td><td class="n strong">$0.92</td><td class="n muted">$1.85</td></tr>
+<tr><td class="name">Intismeran: adjuvant RCC (INTerpath-004)</td><td>Phase 2 (data 2027)</td><td class="n">25%</td><td class="n">2031</td><td class="n">$0.8B</td><td>50% (Merck)</td><td class="n">$60</td><td class="n strong">$0.15</td><td class="n muted">$0.90</td></tr>
+<tr><td class="name">Intismeran: 1L advanced melanoma (INTerpath-012)</td><td>Phase 2</td><td class="n">20%</td><td class="n">2031</td><td class="n">$0.6B</td><td>50% (Merck)</td><td class="n">$17</td><td class="n strong">$0.04</td><td class="n muted">$0.77</td></tr>
+<tr><td class="name">Intismeran: 1L metastatic squamous NSCLC (INTerpath-013)</td><td>Phase 2</td><td class="n">15%</td><td class="n">2032</td><td class="n">$0.8B</td><td>50% (Merck)</td><td class="n">$-14</td><td class="n strong">−$0.03</td><td class="n muted">$0.89</td></tr>
+<tr><td class="name">Intismeran: NSCLC non-pCR post-neoadjuvant (INTerpath-009)</td><td>Phase 3</td><td class="n">45%</td><td class="n">2031</td><td class="n">$0.8B</td><td>50% (Merck)</td><td class="n">$-22</td><td class="n strong">−$0.05</td><td class="n muted">$0.78</td></tr>
+<tr><td class="name">Intismeran: muscle-invasive bladder (INTerpath-005)</td><td>Phase 1/2</td><td class="n">20%</td><td class="n">2032</td><td class="n">$0.7B</td><td>50% (Merck)</td><td class="n">$-48</td><td class="n strong">−$0.12</td><td class="n muted">$0.78</td></tr>
+<tr><td class="name">mRNA-4359 (checkpoint cancer therapy)</td><td>Phase 1/2</td><td class="n">10%</td><td class="n">2032</td><td class="n">$0.8B</td><td>100%</td><td class="n">$-68</td><td class="n strong">−$0.17</td><td class="n muted">$1.62</td></tr>
+<tr><td class="name">Intismeran: high-risk NMIBC (INTerpath-011)</td><td>Phase 2</td><td class="n">15%</td><td class="n">2034</td><td class="n">$0.8B</td><td>50% (Merck)</td><td class="n">$-85</td><td class="n strong">−$0.21</td><td class="n muted">$0.62</td></tr>
+<tr><td class="name">mRNA-3705 (methylmalonic acidemia)</td><td>Pivotal decision deferred</td><td class="n">25%</td><td class="n">2031</td><td class="n">$0.5B</td><td>100%</td><td class="n">$-89</td><td class="n strong">−$0.22</td><td class="n muted">$0.97</td></tr>
+<tr><td class="name">Intismeran: high-risk stage I NSCLC (INTerpath-014)</td><td>Phase 3 (just started)</td><td class="n">40%</td><td class="n">2033</td><td class="n">$1.5B</td><td>50% (Merck)</td><td class="n">$-99</td><td class="n strong">−$0.24</td><td class="n muted">$0.96</td></tr>
+    </tbody>
+  </table></div>
+  <p class="col muted" style="font-size:0.88rem">Exhibit 3. Program values. INTerpath-007 (cutaneous squamous cell carcinoma) was terminated and the congenital CMV vaccine failed Phase 3 in October 2025; both are valued at zero. Early-stage programs not listed are also valued at zero, and the overhead line includes only the platform spending needed to sustain the listed programs.</p>
+
+  <h3>How the cancer markets are sized</h3>
+  <div class="col">
+    <ul>
+      <li><strong>Adjuvant melanoma, $2.5B global peak.</strong> ACS projects 112,000 US melanomas in 2026. SEER shows 10% diagnosed at regional stage (stage III), and roughly 5,500 a year are stage IIB/C, so about 16,700 US patients a year fit the INTerpath-001 population. We assume 60% receive adjuvant Keytruda and 60% of those add intismeran at peak, at about $300K per course in the US (between a published $200K cost-effectiveness case and William Blair's $475K) and about $140K elsewhere.</li>
+      <li><strong>Adjuvant NSCLC stage II–IIIB, $3.0B global peak.</strong> ACS projects 229,410 US lung cancers in 2026, 77% NSCLC. We assume about 15% are resected stage II–IIIB, 60% get adjuvant immunotherapy and 40% of those add intismeran.</li>
+      <li><strong>Margins.</strong> Each course is manufactured for one patient (estimated production cost above $100K), so we use a 58% contribution margin at peak, after cost of goods and selling costs, before Moderna's half.</li>
+    </ul>
+  </div>
+
+  <h2>Probability of success: basis and sources</h2>
+  <p class="col">Probabilities start from the BIO / Informa / QLS study of 12,728 phase transitions from 2011 to 2020, then move up or down for program-specific evidence. Reference rates used: vaccines 58.1% Phase 3→filing and 100% filing→approval; immuno-oncology 40.2% Phase 2→3, 49.0% Phase 3→filing, 98.4% filing→approval (48.2% from Phase 3, 19.4% from Phase 2); solid tumors 9.3% from Phase 2; rare disease 60.4% Phase 3→filing, 93.6% filing→approval, 25.2% from Phase 2.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Program</th><th class="n">PoS</th><th>Basis</th></tr></thead>
+    <tbody><tr><td class="name">Spikevax + mNEXSPIKE (COVID)</td><td class="n">100%</td><td>Marketed</td></tr>
+<tr><td class="name">mRESVIA (RSV)</td><td class="n">100%</td><td>Marketed</td></tr>
+<tr><td class="name">Intismeran: adjuvant melanoma (INTerpath-001)</td><td class="n">90%</td><td>Phase 3 met RFS and DMFS at first interim. BIO immuno-oncology filing→approval 98.4%; cut to 90% because the HR, OS and filing timing are undisclosed and CBER review of a first-in-class individualized mRNA therapy adds regulatory risk</td></tr>
+<tr><td class="name">mFLUSIVA (seasonal flu, adults 50+)</td><td class="n">80%</td><td>Approved (technical PoS 100%); 80% = probability of commercial adoption given ACIP/HHS uncertainty (ACIP reconstituted, COVID recs removed; CIDRAP May 2026)</td></tr>
+<tr><td class="name">mCOMBRIAX (flu + COVID combo)</td><td class="n">60%</td><td>EU authorization received; US refiling awaiting FDA guidance. 60% blends EU approval (certain) with an uncertain US path (judgment)</td></tr>
+<tr><td class="name">mRNA-3927 (propionic acidemia)</td><td class="n">50%</td><td>BIO rare disease Phase 3→filing 60.4% × filing→approval 93.6% = 56.5%; trimmed to 50% for a first-of-kind chronic mRNA protein-replacement therapy</td></tr>
+<tr><td class="name">Intismeran: adjuvant NSCLC stage II-IIIB (INTerpath-002)</td><td class="n">50%</td><td>BIO immuno-oncology Phase 3 LOA 48.2%; ~50% given same-agent Phase 3 success in melanoma, offset by no randomized NSCLC data and lower tumor mutational burden than melanoma</td></tr>
+<tr><td class="name">Intismeran: NSCLC non-pCR post-neoadjuvant (INTerpath-009)</td><td class="n">45%</td><td>BIO immuno-oncology Phase 3 LOA 48.2%; 45% for a harder residual-disease population</td></tr>
+<tr><td class="name">Intismeran: high-risk stage I NSCLC (INTerpath-014)</td><td class="n">40%</td><td>BIO immuno-oncology Phase 3 LOA 48.2%; 40% for a monotherapy arm in early-stage disease with a 2034 primary completion</td></tr>
+<tr><td class="name">mRNA-1403 (norovirus)</td><td class="n">35%</td><td>BIO 2011-20 vaccine Phase 3→filing 58.1%, filing→approval 100%; cut to 35% after the Phase 3 interim missed early-success criteria (Q2 2026 release)</td></tr>
+<tr><td class="name">mRNA-3705 (methylmalonic acidemia)</td><td class="n">25%</td><td>BIO rare disease LOA from Phase 2 = 25.2%; pivotal start deferred until PA data</td></tr>
+<tr><td class="name">Intismeran: adjuvant RCC (INTerpath-004)</td><td class="n">25%</td><td>BIO immuno-oncology LOA from Phase 2 = 19.4%; raised to 25% for platform validation and an established adjuvant pembrolizumab backbone (KEYNOTE-564)</td></tr>
+<tr><td class="name">Intismeran: muscle-invasive bladder (INTerpath-005)</td><td class="n">20%</td><td>BIO immuno-oncology LOA from Phase 2 = 19.4% → 20%</td></tr>
+<tr><td class="name">Intismeran: 1L advanced melanoma (INTerpath-012)</td><td class="n">20%</td><td>BIO immuno-oncology LOA from Phase 2 = 19.4% → 20%</td></tr>
+<tr><td class="name">Intismeran: high-risk NMIBC (INTerpath-011)</td><td class="n">15%</td><td>BIO immuno-oncology LOA from Phase 2 = 19.4%; 15% for an open-label BCG-combination design with a 2031 completion</td></tr>
+<tr><td class="name">Intismeran: 1L metastatic squamous NSCLC (INTerpath-013)</td><td class="n">15%</td><td>BIO solid-tumor LOA from Phase 2 = 9.3%, immuno-oncology 19.4%; 15% because vaccines have a weak record in metastatic disease</td></tr>
+<tr><td class="name">mRNA-4359 (checkpoint cancer therapy)</td><td class="n">10%</td><td>BIO solid-tumor LOA from Phase 2 = 9.3% → 10%</td></tr></tbody>
+  </table></div>
+  <p class="col muted" style="font-size:0.88rem">Exhibit 4. Probabilities of success. Marketed products are 100%. mFLUSIVA's 80% is a commercial-adoption haircut, not regulatory risk.</p>
+
+  <h2>Catalyst path</h2>
+  <ul class="timeline">
+    <li><span class="when">Oct 9, 2026</span><span class="what"><strong>Nasdaq-100 inclusion.</strong> Index funds tracking more than $800B must buy. This is a flow event, not a fundamental one, and is likely to support the stock in the near term.</span><span class="chip up">Near-term up</span></li>
+    <li><span class="when">Early Nov 2026</span><span class="what"><strong>Q3 results.</strong> First mFLUSIVA shipments, COVID season orders, and whether opex tracks the lowered guidance (R&amp;D about $2.9B, year-end cash $4.7–5.2B before the convertible).</span><span class="chip both">Two-way</span></li>
+    <li><span class="when">Late 2026 (guided)</span><span class="what"><strong>Propionic acidemia registrational data (mRNA-3927).</strong> Binary; worth $0.92 per share risk-adjusted. A win also restarts the methylmalonic acidemia pivotal decision.</span><span class="chip both">Two-way</span></li>
+    <li><span class="when">Late 2026 – 2027</span><span class="what"><strong>Full INTerpath-001 data at a medical meeting.</strong> The largest swing factor. Management's benchmark is a 20% risk reduction; Evercore says 35–40% would be clearly differentiated; the Phase 2b five-year hazard ratio was 0.51. A hazard ratio near 0.5 with an overall-survival trend would support our bull case, and anything near 0.8 would leave little to defend at this price.</span><span class="chip both">Two-way, large</span></li>
+    <li><span class="when">2026 – 2027</span><span class="what"><strong>Regulatory filing and review for intismeran in melanoma.</strong> Moderna expects launch in 2027, with meaningful sales from 2028.</span><span class="chip up">Up if on time</span></li>
+    <li><span class="when">Pending</span><span class="what"><strong>Federal Circuit ruling on government-contractor immunity (28 U.S.C. §1498).</strong> A loss triggers up to $1.3B more to Arbutus/Genevant within 90 days.</span><span class="chip down">Down risk</span></li>
+    <li><span class="when">2026–27 season</span><span class="what"><strong>ACIP stance on mFLUSIVA and FDA guidance on refiling mCOMBRIAX.</strong> HHS removed COVID recommendations, replaced all ACIP members and cancelled about $500M of mRNA funding, so adoption is uncertain even after approval.</span><span class="chip down">Down risk</span></li>
+    <li><span class="when">2027</span><span class="what"><strong>Norovirus Phase 3 additional cohort; INTerpath-004 (kidney cancer) Phase 2.</strong> The kidney trial's primary completion is April 2027 and will be the first randomized intismeran data outside melanoma.</span><span class="chip both">Two-way</span></li>
+    <li><span class="when">2028</span><span class="what"><strong>Cash breakeven target; INTerpath-012 (first-line melanoma) Phase 2; possible INTerpath-002 interim.</strong> The NSCLC trials are event-driven and could read out before their 2030–2034 completion dates, as INTerpath-001 did.</span><span class="chip both">Two-way</span></li>
+  </ul>
+
+  <h2>Recommendation</h2>
+  <div class="col">
+    <p><strong>Sell.</strong> The direction of the call holds up across methods. Our base case is $27, our bull case is $57, and the most optimistic Street target we found is $135. All of them are well below $188.94. The exact level depends on our modelling choices; the gap to the price is too large for those choices to close.</p>
+    <ul>
+      <li><strong>Holders:</strong> reduce or exit, ideally into Nasdaq-100 buying around October 9.</li>
+      <li><strong>No position:</strong> avoid buying until the full INTerpath-001 data are public. If the hazard ratio is near 0.5 with an overall-survival trend, revisit using our bull case, which is still about $57.</li>
+      <li><strong>Short sellers:</strong> the risk is high. The stock moved from $22 to $209 in a year, index inclusion brings forced buying, full data could re-rate it, and Merck could bid for the company to own all of intismeran. Prefer defined-risk structures and small size.</li>
+    </ul>
+    <h3>Risks to the Sell call</h3>
+    <ul>
+      <li><strong>A Merck acquisition.</strong> Owning 100% of intismeran is worth more to Merck than to any other buyer, and a takeover premium would land on today's elevated price.</li>
+      <li><strong>Exceptional full data.</strong> A large effect with an early overall-survival benefit could lift adoption, pricing and the read-across to lung cancer above our bull case.</li>
+      <li><strong>Platform value we leave out.</strong> We value Moderna's early pipeline at zero and charge ongoing platform cost against the listed programs. Each $250M a year of overhead removed adds about $5 per share.</li>
+      <li><strong>Flow and positioning.</strong> Index inclusion, short covering and momentum can keep the stock above fundamental value for longer than a 12-month horizon.</li>
+    </ul>
+    <h3>Where we differ from the Street</h3>
+    <p>Our target is below every published target. The main reasons: we charge platform and corporate overhead without crediting unlisted programs, we use a 10% discount rate, we price intismeran at about $300K in the US rather than $475K, and we apply standard industry success rates to the eight unread intismeran trials. Even adopting William Blair's $5.4B melanoma peak raises our DCF only to about $29.</p>
+  </div>
+
+  <h2>Key numbers we relied on</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Item</th><th>Value</th><th>Source</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Share price</td><td class="n">$188.94</td><td>Close, Oct 1, 2026 (Yahoo Finance)</td></tr>
+      <tr><td class="name">Shares outstanding</td><td class="n">399.2M</td><td>10-Q cover, Jul 24, 2026; 405M diluted is our estimate</td></tr>
+      <tr><td class="name">2025 revenue · net loss · operating cash flow</td><td class="n">$1.94B · −$2.82B · −$1.87B</td><td>FY2025 10-K (SEC XBRL)</td></tr>
+      <tr><td class="name">Q2 2026 revenue · cash and investments</td><td class="n">$145M · $6.9B</td><td>Q2 2026 results, Jul 31, 2026</td></tr>
+      <tr><td class="name">2026 guidance</td><td>Up to 10% revenue growth; R&amp;D ~$2.9B; SG&amp;A ~$1.0B; year-end cash $4.7–5.2B</td><td>Q2 2026 results</td></tr>
+      <tr><td class="name">Convertible notes</td><td>$3.0B, 0%, due 2032, conversion $210.58</td><td>8-K, Sep 1, 2026</td></tr>
+      <tr><td class="name">Credit facility</td><td>$0.6B drawn of $1.5B</td><td>FY2025 and Q2 2026 results</td></tr>
+      <tr><td class="name">Arbutus/Genevant settlement</td><td>$950M paid Jul 2026; up to $1.3B contingent</td><td>Settlement reporting, Mar 2026</td></tr>
+      <tr><td class="name">Intismeran economics</td><td>50/50 cost and profit share with Merck</td><td>Moderna 10-K; Merck</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>Sources</h2>
+  <ol class="sources">
+    <li><a href="https://www.sec.gov/Archives/edgar/data/0001682852/000168285226000147/exhibit9912026q2pressrelea.htm">Moderna Q2 2026 results press release (SEC 8-K exhibit 99.1), Jul 31, 2026</a></li>
+    <li><a href="https://www.sec.gov/Archives/edgar/data/1682852/000168285226000015/exhibit9912025q4pressrelea.htm">Moderna Q4 and full-year 2025 results (SEC 8-K exhibit 99.1)</a></li>
+    <li><a href="https://data.sec.gov/api/xbrl/companyfacts/CIK0001682852.json">SEC XBRL company facts for Moderna (revenue, net loss, cash flow, share count)</a></li>
+    <li><a href="https://www.businesswire.com/news/home/20260819675697/en/Merck-and-Moderna-Announce-Phase-3-INTerpath-001-Trial-of-Intismeran-Autogene-Plus-KEYTRUDA-Met-Endpoints-of-Recurrence-Free-Survival-RFS-and-Distant-Metastasis-Free-Survival-DMFS-in-Patients-With-Completely-Resected-Stage-IIB-IV-Melanoma">Merck and Moderna: INTerpath-001 met RFS and DMFS endpoints, Aug 19, 2026</a></li>
+    <li><a href="https://www.merck.com/wp-content/uploads/sites/124/2026/08/Merck-Moderna_INTerpath_Clinical-Program-Backgrounder.pdf">Merck/Moderna INTerpath clinical program backgrounder (all nine trials, enrollment, completion dates), Aug 2026</a></li>
+    <li><a href="https://www.merck.com/news/moderna-and-merck-present-5-year-data-for-intismeran-autogene-in-combination-with-keytruda-pembrolizumab-in-patients-with-high-risk-stage-iii-iv-melanoma-following-complete-resection-at-the-20/">Merck: five-year Phase 2b KEYNOTE-942 data at ASCO 2026 (HR 0.51)</a></li>
+    <li><a href="https://www.biopharmadive.com/news/moderna-merck-intismeran-melanoma-vaccine-stock-reaction/828332/">BioPharma Dive: analyst reactions to INTerpath-001 (William Blair, Evercore, Leerink, TD Cowen, RBC)</a></li>
+    <li><a href="https://www.globaldata.com/media/pharma/modernas-melanoma-vaccine-sales-forecast-to-surpass-1-billion-by-2031-following-landmark-phase-iii-win-forecasts-globaldata/">GlobalData: melanoma sales forecast above $1B by 2031</a></li>
+    <li><a href="https://finance.biggo.com/news/74730371-5f44-47af-9ecf-df6ee565643b">BigGo Finance: William Blair's $475,000 per-course pricing assumption</a></li>
+    <li><a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7398098">Jin, cost-effectiveness of intismeran plus pembrolizumab (SSRN), $200,000 per course case</a></li>
+    <li><a href="https://www.investing.com/news/transcripts/moderna-at-bernstein-forum-mrna-push-broadens-beyond-covid-93CH-4913297">Moderna at Bernstein forum: 50/50 Merck structure, 2027 launch, 2028 contribution</a></li>
+    <li><a href="https://go.bio.org/rs/490-EHZ-999/images/ClinicalDevelopmentSuccessRates2011_2020.pdf">BIO, Informa and QLS Advisors, Clinical Development Success Rates and Contributing Factors 2011–2020 (Feb 2021)</a></li>
+    <li><a href="https://academic.oup.com/biostatistics/article-pdf/20/2/273/28032958/kxx069.pdf">Wong, Siah and Lo, Estimation of clinical trial success rates, Biostatistics 20(2), 2019 (cross-check)</a></li>
+    <li><a href="https://www.pharmexec.com/view/fda-moderna-mrna-based-flu-vaccine">PharmExec: FDA approves mFLUSIVA, Aug 5, 2026</a></li>
+    <li><a href="https://www.pharmexec.com/view/moderna-ceases-development-mrna-1647-failing-primary-goal-clinical-trial">PharmExec: Moderna stops CMV vaccine after Phase 3 miss</a></li>
+    <li><a href="https://www.theglobeandmail.com/investing/markets/stocks/MRNA/pressreleases/4410519/moderna-raises-3-billion-via-convertible-notes-offering/">Moderna $3.0B convertible notes offering, Sep 2026</a></li>
+    <li><a href="https://www.fiercepharma.com/pharma/moderna-fronts-950m-more-potentially-line-settle-yearslong-covid-patent-litigation-genevant">Fierce Pharma: $950M Arbutus/Genevant settlement and $1.3B contingency</a></li>
+    <li><a href="https://www.biospace.com/press-releases/moderna-adds-chief-operating-officer-role-as-company-expands-into-oncology">Moderna names a COO ahead of intismeran launch, Sep 30, 2026</a></li>
+    <li><a href="https://www.cidrap.umn.edu/childhood-vaccines/state-us-vaccine-policy-may-28-2026">CIDRAP: state of US vaccine policy, May 2026</a></li>
+    <li><a href="https://www.hhs.gov/press-room/hhs-winds-down-mrna-development-under-barda.html">HHS: BARDA winds down mRNA vaccine development</a></li>
+    <li><a href="https://www.sec.gov/Archives/edgar/data/1682852/000162828025053318/exhibit9912025analystday.htm">Moderna Analyst Day 2025: cash breakeven 2028, opex targets</a></li>
+    <li><a href="https://ir.nasdaq.com/news-releases/news-release-details/moderna-inc-join-nasdaq-100-indexr-beginning-october-9-2026">Nasdaq: Moderna joins the Nasdaq-100 on Oct 9, 2026</a></li>
+    <li><a href="https://www.msd.com/news/merck-co-inc-rahway-n-j-usa-announces-fourth-quarter-and-full-year-2025-financial-results-highlights-progress-advancing-broad-diverse-pipeline/">Merck full-year 2025 results: Keytruda sales $31.7B</a></li>
+    <li><a href="https://www.cancer.org/cancer/types/melanoma-skin-cancer/about/key-statistics.html">American Cancer Society: melanoma key statistics (112,000 US cases, 2026)</a></li>
+    <li><a href="https://www.cancer.org/cancer/types/lung-cancer/about/key-statistics.html">American Cancer Society: lung cancer key statistics (229,410 US cases, 2026; 77% NSCLC)</a></li>
+    <li><a href="https://seer.cancer.gov/statfacts/html/melan.html">SEER Cancer Stat Facts: melanoma stage distribution</a></li>
+    <li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12383391/">Adjuvant immunotherapy in stage IIB/IIC melanoma (PMC review): about 5,500 US stage IIB/C cases a year</a></li>
+    <li><a href="https://www.marketbeat.com/stocks/NASDAQ/MRNA/forecast/">MarketBeat: MRNA price targets (Citi Sell, $80)</a></li>
+    <li><a href="https://finance.yahoo.com/quote/MRNA/">Yahoo Finance: MRNA quote, consensus and high targets</a></li>
+  </ol>
+
+  <p class="disclaimer">Research support, not investment advice. Prepared Oct 2, 2026 from public information; the model is a simplified program-level valuation and its outputs depend on stated assumptions. Undisclosed INTerpath-001 efficacy data could change the conclusions materially.</p>
+</div>

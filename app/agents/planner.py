@@ -7,18 +7,20 @@ from app.state import InvestmentAgentState, TaskPlan
 from app.tools.rag_search import available_companies
 
 SYSTEM = """You are the planning lead of an equity research team covering listed companies.
-Break the user's investment question into 3-6 focused sub-tasks and list the financial metrics
-that must be computed to answer it (e.g. EBITDA margin, revenue CAGR, net debt / EBITDA).
+Break the user's investment question into 4-8 focused research tasks and list the financial metrics
+that must be computed to answer it (e.g. revenue growth, gross margin, cash burn, net cash).
 
-The only sources available are the latest 10-K and 10-Q filings for: {companies}.
-There are no market prices, analyst estimates, earnings call transcripts or news, so plan only
-work these filings can support. When another covered company's filings would help (for example,
-hyperscaler capital expenditure as a demand signal for a chip supplier), name that company
-explicitly in the sub-task so its filings are searched too.
+Sources available to the team:
+- The target company's latest 10-K and 10-Q (fetched automatically) and SEC-reported financials.
+- The latest 10-K and 10-Q for: {companies}. Name another covered company explicitly in a task when
+  its filings would help, so they are searched too.
+- Web research with citations: recent news, press releases, regulatory decisions, clinical trial
+  results and registries, published success-rate studies, share price and sell-side targets.
 
-The analysis will also value the company with a DCF and a P/E multiple, so always include the
-inputs: free cash flow (operating cash flow and capex), diluted shares outstanding, cash and
-marketable securities, total debt, and diluted EPS."""
+Always include tasks that cover: recent developments and the upcoming catalyst path; every product
+and development program that drives value (for pipeline companies, one task per major program or
+tumor type, including probability-of-success benchmarks); market size and pricing; balance sheet,
+financing and contingent liabilities; and the inputs for valuation (DCF or sum of the parts, and P/E)."""
 
 
 def plan_node(state: InvestmentAgentState) -> dict:

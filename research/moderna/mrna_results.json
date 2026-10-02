@@ -1,0 +1,292 @@
+{
+  "price": 188.94,
+  "shares": 405.0,
+  "market_cap": 76520.7,
+  "base": {
+    "equity": 8433.779967963672,
+    "per_share": 20.824148069046103,
+    "corporate": -5817.308203620994,
+    "net_cash": 4450.0,
+    "litigation": -454.99999999999994,
+    "r": 0.1
+  },
+  "rows": [
+    {
+      "name": "Spikevax + mNEXSPIKE (COVID)",
+      "group": "COVID",
+      "stage": "Marketed",
+      "pos": 1.0,
+      "pos_basis": "Marketed",
+      "launch": 2020,
+      "peak_sales": 0,
+      "share": 1.0,
+      "rnpv": 2795.9177607936467,
+      "unrisked_npv": 2795.9177607936467
+    },
+    {
+      "name": "mRESVIA (RSV)",
+      "group": "Other respiratory",
+      "stage": "Marketed",
+      "pos": 1.0,
+      "pos_basis": "Marketed",
+      "launch": 2024,
+      "peak_sales": 300,
+      "share": 1.0,
+      "rnpv": 542.2838256690112,
+      "unrisked_npv": 542.2838256690112
+    },
+    {
+      "name": "mFLUSIVA (seasonal flu, adults 50+)",
+      "group": "Flu",
+      "stage": "Approved Aug 2026",
+      "pos": 0.8,
+      "pos_basis": "Approved (technical PoS 100%); 80% = probability of commercial adoption given ACIP/HHS uncertainty (ACIP reconstituted, COVID recs removed; CIDRAP May 2026)",
+      "launch": 2026,
+      "peak_sales": 1200,
+      "share": 1.0,
+      "rnpv": 2129.644159647738,
+      "unrisked_npv": 2662.0551995596725
+    },
+    {
+      "name": "mCOMBRIAX (flu + COVID combo)",
+      "group": "Flu",
+      "stage": "EU approved; US refile pending",
+      "pos": 0.6,
+      "pos_basis": "EU authorization received; US refiling awaiting FDA guidance. 60% blends EU approval (certain) with an uncertain US path (judgment)",
+      "launch": 2027,
+      "peak_sales": 600,
+      "share": 1.0,
+      "rnpv": 689.2897177240296,
+      "unrisked_npv": 1148.8161962067156
+    },
+    {
+      "name": "mRNA-1403 (norovirus)",
+      "group": "Other respiratory",
+      "stage": "Phase 3 (missed interim)",
+      "pos": 0.35,
+      "pos_basis": "BIO 2011-20 vaccine Phase 3\u2192filing 58.1%, filing\u2192approval 100%; cut to 35% after the Phase 3 interim missed early-success criteria (Q2 2026 release)",
+      "launch": 2029,
+      "peak_sales": 1000,
+      "share": 1.0,
+      "rnpv": 373.3336462364936,
+      "unrisked_npv": 1292.501819622463
+    },
+    {
+      "name": "mRNA-3927 (propionic acidemia)",
+      "group": "Rare disease",
+      "stage": "Registrational, enrolled",
+      "pos": 0.5,
+      "pos_basis": "BIO rare disease Phase 3\u2192filing 60.4% \u00d7 filing\u2192approval 93.6% = 56.5%; trimmed to 50% for a first-of-kind chronic mRNA protein-replacement therapy",
+      "launch": 2028,
+      "peak_sales": 400,
+      "share": 1.0,
+      "rnpv": 370.6338686266232,
+      "unrisked_npv": 748.6789141195945
+    },
+    {
+      "name": "mRNA-3705 (methylmalonic acidemia)",
+      "group": "Rare disease",
+      "stage": "Pivotal decision deferred",
+      "pos": 0.25,
+      "pos_basis": "BIO rare disease LOA from Phase 2 = 25.2%; pivotal start deferred until PA data",
+      "launch": 2031,
+      "peak_sales": 500,
+      "share": 1.0,
+      "rnpv": -88.94828038141792,
+      "unrisked_npv": 393.4795384521139
+    },
+    {
+      "name": "Intismeran: adjuvant melanoma (INTerpath-001)",
+      "group": "Intismeran",
+      "stage": "Phase 3 positive (Aug 2026)",
+      "pos": 0.9,
+      "pos_basis": "Phase 3 met RFS and DMFS at first interim. BIO immuno-oncology filing\u2192approval 98.4%; cut to 90% because the HR, OS and filing timing are undisclosed and CBER review of a first-in-class individualized mRNA therapy adds regulatory risk",
+      "launch": 2027,
+      "peak_sales": 2500,
+      "share": 0.5,
+      "rnpv": 2572.924011128409,
+      "unrisked_npv": 2872.8648842634943
+    },
+    {
+      "name": "Intismeran: adjuvant NSCLC stage II-IIIB (INTerpath-002)",
+      "group": "Intismeran",
+      "stage": "Phase 3",
+      "pos": 0.5,
+      "pos_basis": "BIO immuno-oncology Phase 3 LOA 48.2%; ~50% given same-agent Phase 3 success in melanoma, offset by no randomized NSCLC data and lower tumor mutational burden than melanoma",
+      "launch": 2029,
+      "peak_sales": 3000,
+      "share": 0.5,
+      "rnpv": 1130.0872849401715,
+      "unrisked_npv": 2544.0754250436403
+    },
+    {
+      "name": "Intismeran: NSCLC non-pCR post-neoadjuvant (INTerpath-009)",
+      "group": "Intismeran",
+      "stage": "Phase 3",
+      "pos": 0.45,
+      "pos_basis": "BIO immuno-oncology Phase 3 LOA 48.2%; 45% for a harder residual-disease population",
+      "launch": 2031,
+      "peak_sales": 800,
+      "share": 0.5,
+      "rnpv": -21.95332726779729,
+      "unrisked_npv": 314.4866103615909
+    },
+    {
+      "name": "Intismeran: high-risk stage I NSCLC (INTerpath-014)",
+      "group": "Intismeran",
+      "stage": "Phase 3 (just started)",
+      "pos": 0.4,
+      "pos_basis": "BIO immuno-oncology Phase 3 LOA 48.2%; 40% for a monotherapy arm in early-stage disease with a 2034 primary completion",
+      "launch": 2033,
+      "peak_sales": 1500,
+      "share": 0.5,
+      "rnpv": -98.65496914334861,
+      "unrisked_npv": 388.85095679004723
+    },
+    {
+      "name": "Intismeran: adjuvant RCC (INTerpath-004)",
+      "group": "Intismeran",
+      "stage": "Phase 2 (data 2027)",
+      "pos": 0.25,
+      "pos_basis": "BIO immuno-oncology LOA from Phase 2 = 19.4%; raised to 25% for platform validation and an established adjuvant pembrolizumab backbone (KEYNOTE-564)",
+      "launch": 2031,
+      "peak_sales": 800,
+      "share": 0.5,
+      "rnpv": 59.858542520726154,
+      "unrisked_npv": 365.97801717026755
+    },
+    {
+      "name": "Intismeran: muscle-invasive bladder (INTerpath-005)",
+      "group": "Intismeran",
+      "stage": "Phase 1/2",
+      "pos": 0.2,
+      "pos_basis": "BIO immuno-oncology LOA from Phase 2 = 19.4% \u2192 20%",
+      "launch": 2032,
+      "peak_sales": 700,
+      "share": 0.5,
+      "rnpv": -48.465616505533305,
+      "unrisked_npv": 316.6066094787902
+    },
+    {
+      "name": "Intismeran: high-risk NMIBC (INTerpath-011)",
+      "group": "Intismeran",
+      "stage": "Phase 2",
+      "pos": 0.15,
+      "pos_basis": "BIO immuno-oncology LOA from Phase 2 = 19.4%; 15% for an open-label BCG-combination design with a 2031 completion",
+      "launch": 2034,
+      "peak_sales": 800,
+      "share": 0.5,
+      "rnpv": -85.24211285366096,
+      "unrisked_npv": 250.68435825514248
+    },
+    {
+      "name": "Intismeran: 1L advanced melanoma (INTerpath-012)",
+      "group": "Intismeran",
+      "stage": "Phase 2",
+      "pos": 0.2,
+      "pos_basis": "BIO immuno-oncology LOA from Phase 2 = 19.4% \u2192 20%",
+      "launch": 2031,
+      "peak_sales": 600,
+      "share": 0.5,
+      "rnpv": 17.102153942059555,
+      "unrisked_npv": 313.61961075644854
+    },
+    {
+      "name": "Intismeran: 1L metastatic squamous NSCLC (INTerpath-013)",
+      "group": "Intismeran",
+      "stage": "Phase 2",
+      "pos": 0.15,
+      "pos_basis": "BIO solid-tumor LOA from Phase 2 = 9.3%, immuno-oncology 19.4%; 15% because vaccines have a weak record in metastatic disease",
+      "launch": 2032,
+      "peak_sales": 800,
+      "share": 0.5,
+      "rnpv": -13.898797829380925,
+      "unrisked_npv": 361.2989405967344
+    },
+    {
+      "name": "mRNA-4359 (checkpoint cancer therapy)",
+      "group": "Other oncology",
+      "stage": "Phase 1/2",
+      "pos": 0.1,
+      "pos_basis": "BIO solid-tumor LOA from Phase 2 = 9.3% \u2192 10%",
+      "launch": 2032,
+      "peak_sales": 800,
+      "share": 1.0,
+      "rnpv": -67.823695663103,
+      "unrisked_npv": 657.0657937473079
+    }
+  ],
+  "pe20": {
+    "eps_year": 2032,
+    "op_income": 1149.1171333973728,
+    "net_income": 976.7495633877668,
+    "eps": 2.3297761467256746,
+    "pe": 20.0,
+    "value_at_eps_year_start": 46.59552293451349,
+    "pv_at_target_date": 31.07601183663138
+  },
+  "pe25": {
+    "eps_year": 2032,
+    "op_income": 1149.1171333973728,
+    "net_income": 976.7495633877668,
+    "eps": 2.3297761467256746,
+    "pe": 25.0,
+    "value_at_eps_year_start": 58.244403668141864,
+    "pv_at_target_date": 38.845014795789226
+  },
+  "dcf_12m": 22.906562875950716,
+  "blend": 26.991287356291046,
+  "scenarios": {
+    "Bear": {
+      "dcf": 7.048471883436271,
+      "pe20": 8.736800452505413,
+      "eps2032": 0.655000049554481
+    },
+    "Base": {
+      "dcf": 20.824148069046103,
+      "pe20": 31.07601183663138,
+      "eps2032": 2.3297761467256746
+    },
+    "Bull": {
+      "dcf": 43.241047651347664,
+      "pe20": 66.90358294380673,
+      "eps2032": 5.015777844737101
+    }
+  },
+  "sens_r": {
+    "8%": 24.251888509709875,
+    "9%": 22.435213018169694,
+    "10%": 20.824148069046103,
+    "11%": 19.392674242729353,
+    "12%": 18.118411131310246
+  },
+  "sens_mel": {
+    "$1.5B": 18.070462737295003,
+    "$2.5B": 20.824148069046103,
+    "$4.0B": 24.95467606667275,
+    "$5.4B": 28.809835531124286,
+    "$8.0B": 35.969417393677126
+  },
+  "sens_overhead": {
+    "$300M": 25.545625256347453,
+    "$550M": 20.824148069046103,
+    "$800M": 16.102670881744753
+  },
+  "implied": {
+    "base_int_peak_global": 11500,
+    "k_risked": 13.830593167117136,
+    "k_certain": 7.4808535481771266,
+    "int_peak_needed_risked": 159051.82142184707,
+    "int_peak_needed_certain": 86029.81580403696
+  },
+  "risked_op": {
+    "2027": -1267.0478375465773,
+    "2028": -983.5307563735141,
+    "2029": -367.4549564969615,
+    "2030": 231.44151149109007,
+    "2031": 760.0598732695762,
+    "2032": 1149.1171333973728,
+    "2033": 1530.019777599815,
+    "2035": 1933.2033433521306
+  }
+}
