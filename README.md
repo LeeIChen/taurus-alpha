@@ -9,6 +9,7 @@ taurus-alpha/
 │   ├── __init__.py
 │   ├── state.py            # Global State 與 Pydantic Schemas
 │   ├── llm.py              # Shared Claude client (model, effort, refusal fallback)
+│   ├── scoring/            # Outcome scoring, human review pages, DPO export
 │   ├── agents/
 │   │   ├── planner.py      # Planner Agent
 │   │   ├── ingest.py       # Company intake: SEC lookup, filings, reported financials
@@ -28,7 +29,7 @@ taurus-alpha/
 ├── scripts/
 │   └── fetch_filings.py    # Download latest 10-K/10-Q from SEC EDGAR
 ├── data/filings/           # Page-level JSONL chunks loaded into the search index
-├── runs/                   # One JSON record per /research run (gitignored)
+├── runs/                   # Run records, scores and human reviews (gitignored)
 ├── main.py                 # FastAPI Entrypoint
 ├── requirements.txt
 └── README.md
@@ -115,6 +116,28 @@ the request, duration, status, and either the full result (plan, metrics, citati
 valuation, memo, faithfulness score, errors) or the failure message. Saving is local
 disk only, with no extra API calls. Set `TAURUS_RUNS_DIR` to save somewhere else. `runs/`
 is gitignored.
+
+## 📏 Scoring and Human Review
+
+Every saved run can be checked against what actually happened, and reviewed by a person.
+
+**Automatic scoring** (`python -m app.scoring.score`, or `GET /scores`): the price at the run,
+return and excess return vs SPY at 30, 90, 180 and 365 days, whether the rating's direction was
+right (Buy beat SPY, Sell lagged it, Hold stayed within ±10%), and the 12-month target error.
+Results go to `runs/scores.json`. Prices come from Yahoo Finance's public chart endpoint, cached in
+`data/prices/`; add rows to `data/prices/manual.csv` (`ticker,date,close`) to fill gaps.
+
+**Human review** (start the API, then open `http://localhost:8000/review`):
+- Score each section 1–5, list factual errors, and give an overall score.
+- Correct a program's probability of success or peak sales, and record its outcome once known.
+  Recorded outcomes feed a Brier score that shows whether the model's probabilities are calibrated.
+- Record what happened for each catalyst; ones whose date has passed are highlighted.
+- `/compare` shows two runs side by side to record which is better and why.
+
+Reviews are plain JSON in `runs/reviews/`. `GET /export/dpo` writes
+`runs/reviews/dpo_pairs.jsonl` with `{prompt, chosen, rejected}` rows for preference training
+(DPO, a simpler form of RLHF) on an open-weight model with LoRA. Claude can't be trained this way;
+for Claude the same feedback guides prompt changes and picking the best of several runs.
 
 ## 💰 Target Price
 

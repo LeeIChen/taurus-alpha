@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from app.llm import ClaudeRefusal
 from app.run_log import save_run, utc_now
+from app.scoring.review_ui import router as review_router
 from app.state import (
     Citation,
     FinancialMetricResult,
@@ -40,6 +41,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="taurus-alpha", lifespan=lifespan)
+app.include_router(review_router)
 
 
 class ResearchRequest(BaseModel):
