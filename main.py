@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import json
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,7 +15,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from app.llm import ClaudeRefusal
-from app.run_log import save_run, utc_now
+from app.run_log import RUNS_DIR, save_run, utc_now
+from app.scoring.review_ui import router as review_router
 from app.state import (
     Citation,
     FinancialMetricResult,
@@ -25,7 +27,7 @@ from app.state import (
     ValuationResult,
 )
 from app.tools.rag_search import default_index, load_filings
-from app.workflow import initial_state, research_graph
+from app.workflow import build_graph, dump_state, initial_state, load_state, next_step
 
 FILINGS_DIR = Path(os.environ.get("TAURUS_FILINGS_DIR", Path(__file__).parent / "data" / "filings"))
 logger = logging.getLogger("uvicorn.error")
@@ -40,6 +42,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="taurus-alpha", lifespan=lifespan)
+app.include_router(review_router)
 
 
 class ResearchRequest(BaseModel):
@@ -76,13 +79,36 @@ def health() -> dict:
 @app.post("/research", response_model=ResearchResponse)
 def research(request: ResearchRequest) -> ResearchResponse:
     # Sync handler: FastAPI runs it in a worker thread, so the blocking graph call is fine.
+    state = initial_state(request.company_name, request.query, request.current_price, request.ticker)
+    return _run(request, state)
+
+
+@app.post("/research/resume/{run_id}", response_model=ResearchResponse)
+def resume(run_id: str) -> ResearchResponse:
+    """Re-run a failed run from the step after its last completed one (saved as its checkpoint)."""
+    path = RUNS_DIR / f"{run_id}.json"
+    if not path.is_file() or path.parent != RUNS_DIR:
+        raise HTTPException(status_code=404, detail=f"No run {run_id}")
+    record = json.loads(path.read_text())
+    if record.get("status") != "failed" or not record.get("checkpoint"):
+        raise HTTPException(status_code=409, detail="Only a failed run with a saved checkpoint can be resumed")
+    return _run(ResearchRequest(**record["request"]), load_state(record["checkpoint"]), resumed_from=run_id)
+
+
+def _run(request: ResearchRequest, state: dict, resumed_from: Optional[str] = None) -> ResearchResponse:
     started_at, t0 = utc_now(), time.monotonic()
+    first = next_step(state)
+    if first is None:
+        raise HTTPException(status_code=409, detail="That run already finished every step")
+    logger.info("Running %s from step %s", request.company_name, first)
+    result = state
     try:
-        result = research_graph.invoke(
-            initial_state(request.company_name, request.query, request.current_price, request.ticker)
-        )
+        # stream_mode="values" yields the full state after each step: the checkpoint if a later one fails
+        for result in build_graph(first).stream(state, stream_mode="values"):
+            pass
     except Exception as exc:
-        save_run(request.model_dump(), started_at, time.monotonic() - t0, failure=f"{type(exc).__name__}: {exc}")
+        save_run(request.model_dump(), started_at, time.monotonic() - t0, failure=f"{type(exc).__name__}: {exc}",
+                 checkpoint=dump_state(result), resumed_from=resumed_from)
         if isinstance(exc, ClaudeRefusal):
             raise HTTPException(status_code=422, detail=str(exc))
         if isinstance(exc, anthropic.RateLimitError):
@@ -110,5 +136,6 @@ def research(request: ResearchRequest) -> ResearchResponse:
         faithfulness_score=result["faithfulness_score"],
         error=result["error"],
     )
-    save_run(request.model_dump(), started_at, time.monotonic() - t0, result=response.model_dump())
+    save_run(request.model_dump(), started_at, time.monotonic() - t0, result=response.model_dump(),
+             resumed_from=resumed_from)
     return response

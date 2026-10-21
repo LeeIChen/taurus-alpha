@@ -21,8 +21,12 @@ def save_run(
     duration_s: float,
     result: Optional[Dict[str, Any]] = None,
     failure: Optional[str] = None,
+    checkpoint: Optional[Dict[str, Any]] = None,
+    resumed_from: Optional[str] = None,
 ) -> Optional[Path]:
-    """Write one run record. Never raises: a logging problem must not fail the request."""
+    """Write one run record. Never raises: a logging problem must not fail the request.
+
+    A failed run keeps `checkpoint`, the state after its last completed step, for resuming."""
     record = {
         "started_at": started_at.isoformat(),
         "duration_s": round(duration_s, 1),
@@ -31,6 +35,10 @@ def save_run(
         "failure": failure,
         "result": result,
     }
+    if resumed_from:
+        record["resumed_from"] = resumed_from
+    if checkpoint:
+        record["checkpoint"] = checkpoint
     slug = re.sub(r"[^a-z0-9]+", "-", str(request.get("company_name", "unknown")).lower()).strip("-")
     stem = f"{started_at.strftime('%Y-%m-%dT%H-%M-%SZ')}_{slug or 'unknown'}"
     path = RUNS_DIR / f"{stem}.json"
