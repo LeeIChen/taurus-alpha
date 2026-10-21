@@ -78,9 +78,10 @@ Web search must be enabled for your organization in the Claude Console.
 
 **Prompt caching.** The steps after retrieval (analysis, valuation, thesis, memo, verifier) read
 the same evidence block: SEC financials, sources, research notes and filing pages. They share one
-system prompt and one output schema (`app/agents/schemas.py`, each step fills its own section) so
-that block is a byte-identical cached prefix: the first step writes it (1-hour TTL) and the other
-four read it at the cache rate (5% of the input price on Opus 5.5). Web research turns on automatic
+system prompt and put the evidence first, with each step's instructions and JSON schema after it
+(`app/agents/schemas.py`), so that block is a byte-identical cached prefix: the first step writes it
+(5-minute TTL, restarted by every read) and the other four read it at the cache rate (5% of the
+input price on Opus 5.5). Web research turns on automatic
 caching so each search iteration re-reads the growing context from cache. Every Claude call logs
 its cache reads and writes.
 

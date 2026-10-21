@@ -64,10 +64,11 @@ def _check_response(response, label: str, started: float) -> None:
 # evidence block. A cache hit needs a byte-identical prefix, and changing the system prompt
 # invalidates the messages cache, so those steps share one frozen system prompt and put the
 # evidence first (cached); each step's own instructions and data come after the breakpoint.
-# 1-hour TTL: consecutive steps can start more than 5 minutes apart (the memo alone can take ~4).
+# 5-minute TTL: each read restarts the timer, and steps run back to back (each took 45-140 s in the
+# Wayfair run). The 1-hour TTL doubles the write price; a miss after a memo over 5 minutes costs one re-write.
 SHARED_SYSTEM = """You are a member of an equity research team. The first part of the user message is
 the shared evidence for this company. Follow the task instructions that come after it exactly."""
-_EVIDENCE_CACHE = {"type": "ephemeral", "ttl": "1h"}
+_EVIDENCE_CACHE = {"type": "ephemeral", "ttl": "5m"}
 
 
 def _request(system: str, prompt: str, context: Optional[str]) -> dict:
