@@ -107,11 +107,19 @@ def ask_structured(system: str, prompt: str, schema: type[T], max_tokens: int = 
     return response.parsed_output
 
 
-def ask_text(system: str, prompt: str, max_tokens: int = 64000, context: Optional[str] = None) -> str:
+def ask_text(system: str, prompt: str, max_tokens: int = 64000, context: Optional[str] = None,
+             read_timeout: Optional[float] = None) -> str:
     """Call Claude and return the concatenated text. Streams to avoid timeouts on long output.
-    Pass `context` to cache shared evidence (see ask_structured)."""
+    Pass `context` to cache shared evidence (see ask_structured).
+
+    `read_timeout` allows longer silences on the stream and turns off the SDK's automatic
+    retry, which would start the whole answer again: used for the long memo, where a failed
+    run resumes from its checkpoint instead."""
     started = time.monotonic()
-    with get_client().beta.messages.stream(
+    client = get_client()
+    if read_timeout:
+        client = client.with_options(timeout=anthropic.Timeout(600.0, read=read_timeout, connect=10.0), max_retries=0)
+    with client.beta.messages.stream(
         model=MODEL,
         max_tokens=max_tokens,
         **_request(system, prompt, context),
@@ -122,6 +130,34 @@ def ask_text(system: str, prompt: str, max_tokens: int = 64000, context: Optiona
         response = stream.get_final_message()
     _check_response(response, "text", started)
     return "".join(block.text for block in response.content if block.type == "text")
+
+
+_JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*\})\s*```", re.S)
+
+
+def ask_json(system: str, prompt: str, schema: type[T], context: Optional[str] = None) -> T:
+    """Like ask_structured, but the schema goes in the prompt and the reply is validated here.
+
+    Used for the cached steps: a structured-output schema renders ahead of the messages, so
+    it must be identical across steps, and one schema covering every step is too large for
+    the API to compile. Retries once with the validation error if the reply doesn't parse.
+    """
+    import json
+
+    ask = (f"{prompt}\n\nReply with one JSON object matching this JSON Schema, in a ```json block:\n"
+           f"{json.dumps(schema.model_json_schema())}")
+    text = ask_text(system, ask, context=context)
+    for attempt in range(2):
+        match = _JSON_BLOCK.search(text)
+        raw = match.group(1) if match else text[text.find("{"): text.rfind("}") + 1]
+        try:
+            return schema.model_validate_json(raw)
+        except ValueError as exc:
+            if attempt:
+                raise
+            logger.warning("Claude %s reply did not validate; retrying once: %s", schema.__name__, str(exc)[:300])
+            text = ask_text(system, f"{ask}\n\nYour previous reply failed validation:\n{str(exc)[:2000]}\n"
+                            f"Previous reply:\n{text}", context=context)
 
 
 # ---- Web research (server-side tools: Anthropic runs the searches) ----
