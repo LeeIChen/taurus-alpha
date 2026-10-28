@@ -1,0 +1,9 @@
+# Optional: LoRA reward model and DPO rewriter (scripts/train_*.py, scripts/serve_local_model.py).
+# Needs a CUDA GPU; not required to run the pipeline.
+torch>=2.3
+transformers>=4.46
+datasets>=3.0
+peft>=0.13
+trl>=0.12
+accelerate>=1.0
+bitsandbytes>=0.44  # only for --load-in-4bit (Linux + CUDA)

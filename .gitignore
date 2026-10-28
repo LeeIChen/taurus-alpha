@@ -4,3 +4,5 @@ __pycache__/
 .env
 data/
 runs/
+models/
+.DS_Store

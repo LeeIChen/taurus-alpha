@@ -104,3 +104,31 @@ def export_dpo(path: Optional[Path] = None) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("".join(json.dumps(r) + "\n" for r in rows))
     return path
+
+
+def export_editor_pairs(path: Optional[Path] = None) -> Path:
+    """Automatic pairs from the editor loop, one per revision: the revised memo over the draft.
+
+    Each row keeps the editor notes the revision applied (meta.notes), so a rewriter can learn
+    draft + notes -> revision. These are AI feedback, not human preferences, so they go to a
+    separate file: use them to warm up a model before there are enough human pairs."""
+    path = path or REVIEW_DIR / "editor_pairs.jsonl"
+    rows = []
+    for run in sorted(RUNS_DIR.glob("*.json")):
+        record = json.loads(run.read_text())
+        r = record.get("result") or {}
+        drafts = r.get("draft_versions") or []
+        if record.get("status") != "succeeded" or not drafts:
+            continue
+        req, notes = record["request"], r.get("edit_history") or []
+        for i, draft in enumerate(drafts):
+            revised = drafts[i + 1] if i + 1 < len(drafts) else r["report"]
+            rows.append({
+                "prompt": f"Company: {req.get('company_name')}\nQuestion: {req.get('query')}",
+                "chosen": revised, "rejected": draft,
+                "meta": {"run_id": run.stem, "source": "editor", "revision": i + 1,
+                         "notes": notes[i] if i < len(notes) else []},
+            })
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in rows))
+    return path

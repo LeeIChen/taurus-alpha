@@ -8,13 +8,13 @@ import json
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 import anthropic
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from app.llm import ClaudeRefusal
+from app.llm import CallTimeout, ClaudeRefusal, start_meter, summarize_costs
 from app.run_log import RUNS_DIR, save_run, utc_now
 from app.scoring.review_ui import router as review_router
 from app.state import (
@@ -67,6 +67,13 @@ class ResearchResponse(BaseModel):
     sources: List[Source]
     research_notes: str
     report: str
+    edit_notes: List[str] = []  # editor notes still open after the last revision
+    revisions: int = 0
+    cost: Dict[str, Any] = {}  # total and per-step USD, plus every call's tokens
+    market_data: Dict[str, Any] = {}  # peer table, history and macro series (computed)
+    section_candidates: Dict[str, List[Dict[str, Any]]] = {}  # best-of-n drafts per section
+    draft_versions: List[str] = []  # memos before each revision
+    edit_history: List[List[str]] = []  # notes each revision applied
     faithfulness_score: float
     error: Optional[str]
 
@@ -97,6 +104,7 @@ def resume(run_id: str) -> ResearchResponse:
 
 def _run(request: ResearchRequest, state: dict, resumed_from: Optional[str] = None) -> ResearchResponse:
     started_at, t0 = utc_now(), time.monotonic()
+    meter = start_meter()  # every Claude call in this run adds its tokens and cost
     first = next_step(state)
     if first is None:
         raise HTTPException(status_code=409, detail="That run already finished every step")
@@ -108,7 +116,10 @@ def _run(request: ResearchRequest, state: dict, resumed_from: Optional[str] = No
             pass
     except Exception as exc:
         save_run(request.model_dump(), started_at, time.monotonic() - t0, failure=f"{type(exc).__name__}: {exc}",
+                 cost=summarize_costs(meter),
                  checkpoint=dump_state(result), resumed_from=resumed_from)
+        if isinstance(exc, CallTimeout):
+            raise HTTPException(status_code=504, detail=f"{exc}; resume with POST /research/resume/<run_id>")
         if isinstance(exc, ClaudeRefusal):
             raise HTTPException(status_code=422, detail=str(exc))
         if isinstance(exc, anthropic.RateLimitError):
@@ -133,9 +144,18 @@ def _run(request: ResearchRequest, state: dict, resumed_from: Optional[str] = No
         sources=result.get("sources") or [],
         research_notes=result.get("research_notes") or "",
         report=result["draft_report"],
+        edit_notes=result.get("edit_notes") or [],
+        revisions=result.get("revisions") or 0,
+        market_data=result.get("market_data") or {},
+        section_candidates=result.get("section_candidates") or {},
+        draft_versions=result.get("draft_versions") or [],
+        edit_history=result.get("edit_history") or [],
         faithfulness_score=result["faithfulness_score"],
         error=result["error"],
     )
+    response.cost = summarize_costs(meter)
+    logger.info("Run cost $%.2f: %s", response.cost["total_usd"],
+                ", ".join(f"{k} ${v['usd']:.2f}" for k, v in response.cost["by_step"].items()))
     save_run(request.model_dump(), started_at, time.monotonic() - t0, result=response.model_dump(),
              resumed_from=resumed_from)
     return response

@@ -7,6 +7,7 @@ from typing import Any, Dict, List
 
 from app.agents.schemas import run_step
 from app.state import FinancialMetricResult, InvestmentAgentState
+from app.tools import fred, peer_comps
 from app.tools.code_executor import run_python
 
 SYSTEM = """You are a buy-side financial analyst. Using the provided filing pages, SEC-reported
@@ -16,7 +17,8 @@ only the final numeric value. Add a citation for every figure: for filing pages 
 and page_number; for web research use the source id (e.g. "S4") as source_doc and 0 as page_number;
 for SEC-reported financials use "SEC XBRL" and 0. If no source supports a metric's inputs, omit
 the metric rather than estimating. Documents may come from several companies; check each
-document's company before using it."""
+document's company before using it. Skip any metric the peer_comps or financial_history tables
+already give (source X1): those need no code."""
 
 
 def format_documents(docs: List[Dict[str, Any]]) -> str:
@@ -27,6 +29,21 @@ def format_documents(docs: List[Dict[str, Any]]) -> str:
         f'doc_type="{d["metadata"].get("doc_type", "")}" page_number="{d["metadata"].get("page_number", 0)}">\n'
         f'{d["content"]}\n</document>'
         for d in docs
+    )
+
+
+def market_tables(state: InvestmentAgentState) -> str:
+    """Peer table, financial history and macro table (sources X1 and M1), rendered deterministically."""
+    md = state.get("market_data") or {}
+    if not md:
+        return ""
+    peers = md.get("peers") or []
+    target = next((r for r in peers if r.get("ticker") == (state.get("ticker") or "").upper() and "error" not in r), None)
+    return (
+        f"<peer_comps source_id=\"X1\" as_of=\"{md.get('as_of')}\">\n{peer_comps.render_table(peers)}\n</peer_comps>\n\n"
+        f"<financial_history source_id=\"X1\">\n{peer_comps.render_history(md.get('history') or [], target)}\n"
+        f"</financial_history>\n\n"
+        f"<macro_data source_id=\"M1\" as_of=\"{md.get('as_of')}\">\n{fred.render_table(md.get('macro') or [])}\n</macro_data>\n\n"
     )
 
 
@@ -42,6 +59,7 @@ def shared_evidence(state: InvestmentAgentState) -> str:
         f"<question>{state['user_query']}</question>\n\n"
         f"<sec_reported_financials>\n{json.dumps(state.get('reported_financials') or {}, indent=1, sort_keys=True)}\n"
         f"</sec_reported_financials>\n\n"
+        f"{market_tables(state)}"
         f"<sources>\n{sources}\n</sources>\n\n"
         f"<web_research_notes>\n{state.get('research_notes') or '(none)'}\n</web_research_notes>\n\n"
         f"<filing_pages>\n{format_documents(state['retrieved_docs'])}\n</filing_pages>"

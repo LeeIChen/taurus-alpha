@@ -1,10 +1,15 @@
-from typing import List, Dict, Any, Optional, TypedDict
+from typing import Annotated, List, Dict, Any, Optional, TypedDict
 from pydantic import BaseModel, Field
 
 # ---- Structured schemas for agent outputs ----
 class TaskPlan(BaseModel):
     tasks: List[str] = Field(description="List of decomposed sub-tasks")
     required_metrics: List[str] = Field(description="Financial metrics to compute, e.g. EBITDA, CAGR")
+    peer_tickers: List[str] = Field(default_factory=list,
+                                    description="US-listed tickers of the closest listed competitors (at most 6), e.g. ['WSM', 'RH']")
+    macro_series: List[str] = Field(default_factory=list,
+                                    description="FRED series ids for this company's sector drivers beyond rates, CPI, jobs, "
+                                                "sentiment and real PCE, e.g. ['MORTGAGE30US', 'EXHOSLUSM495S']")
 
 class FinancialMetricResult(BaseModel):
     metric_name: str
@@ -123,6 +128,11 @@ class InvestmentThesis(BaseModel):
     what_would_change_our_view: List[str]
 
 # ---- LangGraph global state ----
+def merge_dicts(old: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Reducer for keys the parallel section writers fill in; an update of None clears the key."""
+    return {} if new is None else {**(old or {}), **new}
+
+
 class InvestmentAgentState(TypedDict):
     company_name: str
     user_query: str
@@ -140,7 +150,19 @@ class InvestmentAgentState(TypedDict):
     valuation: Optional[ValuationResult]
     pipeline_valuation: Optional[PipelineValuationResult]
     thesis: Optional[InvestmentThesis]
+    # Computed without the model: peer table from SEC XBRL and prices, macro series from FRED
+    market_data: Dict[str, Any]
+    # Section writers (run in parallel): text per section, the filing pages each one retrieved,
+    # and every candidate when best-of-n is on
+    memo_sections: Annotated[Dict[str, str], merge_dicts]
+    section_docs: Annotated[Dict[str, List[Dict[str, Any]]], merge_dicts]
+    section_candidates: Annotated[Dict[str, List[Dict[str, Any]]], merge_dicts]
     draft_report: str
+    # Editor loop
+    edit_notes: List[str]  # the editor's latest notes; empty once approved
+    revisions: int
+    draft_versions: List[str]  # memos before each revision, oldest first
+    edit_history: List[List[str]]  # the editor notes each revision applied, same order
     faithfulness_score: float
     current_step: str
     error: Optional[str]
