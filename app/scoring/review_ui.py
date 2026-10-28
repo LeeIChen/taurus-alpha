@@ -14,7 +14,8 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
 from app.run_log import RUNS_DIR
-from app.scoring.reviews import SECTIONS, add_preference, add_review, export_dpo, load_preferences, load_reviews
+from app.scoring.reviews import SECTIONS, add_preference, add_review, export_dpo, export_editor_pairs, load_preferences, load_reviews
+from app.scoring.reference import reference_runs
 from app.scoring.score import score_all
 
 router = APIRouter()
@@ -206,7 +207,7 @@ def save_review(run_id: str, review: ReviewIn) -> Dict[str, Any]:
 
 @router.get("/compare", response_class=HTMLResponse)
 def compare_page(a: Optional[str] = None, b: Optional[str] = None) -> HTMLResponse:
-    run_ids = [r["run_id"] for r in score_all()["runs"]]
+    run_ids = [r["run_id"] for r in score_all()["runs"]] + reference_runs()  # references: outside reports
     options = lambda sel: "".join(f"<option {'selected' if r == sel else ''}>{e(r)}</option>" for r in run_ids)
     pick = (f"<form class='row' method='get'><label>A <select name='a'>{options(a)}</select></label>"
             f"<label>B <select name='b'>{options(b)}</select></label><button>Show</button></form>")
@@ -251,3 +252,9 @@ def export() -> PlainTextResponse:
     path = export_dpo()
     return PlainTextResponse(path.read_text() or "(no preference pairs yet; ties are skipped)\n",
                              headers={"X-Export-Path": str(path)})
+
+
+@router.get("/export/editor-pairs", response_class=PlainTextResponse)
+def export_editor() -> PlainTextResponse:
+    path = export_editor_pairs()
+    return PlainTextResponse(path.read_text() or "(no revised memos yet)\n", headers={"X-Export-Path": str(path)})

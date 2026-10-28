@@ -39,6 +39,22 @@ Write research notes in Markdown with these sections:
 State numbers exactly as the source does. If sources disagree, give both. Do not speculate."""
 
 
+def _covered(state: InvestmentAgentState) -> str:
+    """What the market-data step already computed, so no searches go to it."""
+    md = state.get("market_data") or {}
+    peers = ", ".join(r["ticker"] for r in md.get("peers", []) if "error" not in r)
+    series = ", ".join(r["label"] for r in md.get("macro", []) if "error" not in r)
+    if not peers and not series:
+        return ""
+    return ("Already covered without search, so do not search for these: "
+            + (f"revenue, margins, cash flow, balance sheet and valuation multiples of {peers} (SEC data and "
+               f"prices); " if peers else "")
+            + (f"the latest values of {series} (FRED). " if series else "")
+            + "Spend searches on what those cannot give: the share price and sell-side targets, recent news and "
+              "guidance, industry size and structure, unlisted competitors, policy and tariff decisions, and dates "
+              "of upcoming macro events (central bank meetings, data releases).")
+
+
 def web_research_node(state: InvestmentAgentState) -> dict:
     plan = state["plan"]
     prompt = (
@@ -46,6 +62,7 @@ def web_research_node(state: InvestmentAgentState) -> dict:
         f"Company: {state['company_name']} (ticker {state.get('ticker') or 'unknown'})\n"
         f"Investment question: {state['user_query']}\n\n"
         "Research tasks from the plan:\n" + "\n".join(f"- {t}" for t in plan.tasks)
+        + "\n\n" + _covered(state)
     )
     try:
         notes, found = ask_with_web(SYSTEM, prompt)

@@ -20,7 +20,13 @@ Sources available to the team:
 Always include tasks that cover: recent developments and the upcoming catalyst path; every product
 and development program that drives value (for pipeline companies, one task per major program or
 tumor type, including probability-of-success benchmarks); market size and pricing; balance sheet,
-financing and contingent liabilities; and the inputs for valuation (DCF or sum of the parts, and P/E)."""
+financing and contingent liabilities; and the inputs for valuation (DCF or sum of the parts, and P/E).
+
+Also list the closest US-listed competitors as peer_tickers (the team computes their margins and
+multiples from SEC data and prices), and the FRED series ids for the sector's macro drivers as
+macro_series (rates, CPI, unemployment, sentiment and real PCE are always included). Examples:
+housing-linked retail MORTGAGE30US, EXHOSLUSM495S, RSFHFS, PCEDG; autos TOTALSA; semiconductors
+IPG3344S; energy DCOILWTICO; banks T10Y2Y, BAMLH0A0HYM2; e-commerce ECOMPCTSA."""
 
 
 def plan_node(state: InvestmentAgentState) -> dict:

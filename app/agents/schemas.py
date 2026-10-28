@@ -3,7 +3,7 @@
 A structured-output schema renders ahead of the messages, so a different schema per step
 would change the prompt prefix and miss the evidence cache, and one schema covering every
 step is too large for the API to compile. These steps therefore ask for JSON in the prompt
-(after the cached evidence) and validate it locally; the memo comes back as plain text.
+(after the cached evidence) and validate it locally.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.llm import ask_json, ask_text
+from app.llm import ask_json
 from app.state import Citation, InvestmentAgentState, InvestmentThesis, PipelineAssumptions, ValuationAssumptions
 
 
@@ -42,7 +42,7 @@ class FaithfulnessVerdict(BaseModel):
     unsupported_claims: List[str] = Field(description="Quote each claim the sources do not support")
 
 
-# The memo can think silently for minutes before writing (a 180 s read timeout failed a real run).
+# Long writing calls can think silently for minutes (a 180 s read timeout failed a real run).
 MEMO_READ_TIMEOUT = 600.0
 
 STEP_SCHEMAS = {
@@ -54,11 +54,5 @@ STEP_SCHEMAS = {
 
 
 def run_step(section: str, instructions: str, prompt: str, state: InvestmentAgentState, evidence: str):
-    """Run one step against the cached evidence: a validated model, or the memo text for memo_markdown."""
-    if section == "memo_markdown":
-        memo = ask_text(instructions, f"{prompt}\n\nReply with the memo in Markdown only.", context=evidence,
-                        read_timeout=MEMO_READ_TIMEOUT)
-        if not memo.strip():
-            raise ValueError("The memo step returned no text")
-        return memo.strip()
+    """Run one step against the cached evidence and return its validated model."""
     return ask_json(instructions, prompt, STEP_SCHEMAS[section], context=evidence)

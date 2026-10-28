@@ -279,9 +279,18 @@ _FACTS = {
 }
 
 
+def company_facts(cik: int) -> Dict[str, Any]:
+    """All XBRL facts a company has reported, cached on disk for a day."""
+    path = SEC_CACHE_DIR / f"companyfacts_CIK{cik:010d}.json"
+    if not path.exists() or time.time() - path.stat().st_mtime > 86400:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(_get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"))
+    return json.loads(path.read_text())["facts"]
+
+
 def reported_financials(cik: int) -> Dict[str, Any]:
     """Latest annual and latest-quarter values for key line items, plus shares outstanding."""
-    facts = json.loads(_get(f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"))["facts"]
+    facts = company_facts(cik)
     gaap, dei = facts.get("us-gaap", {}), facts.get("dei", {})
     out: Dict[str, Any] = {"source": f"SEC XBRL company facts, CIK {cik}", "values": {}}
     for key, tags in _FACTS.items():
