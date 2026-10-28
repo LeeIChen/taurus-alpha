@@ -1,48 +1,64 @@
 # taurus-alpha
-This is a investment agent system that helps with decisions in investing listed companies.
+
+An investment research system with two parts:
+
+- **Screener** (`screener/`): an interactive wizard that narrows the S&P 1500 to fundamentally strong
+  companies, one decision at a time: growth or value, size, sensitivity to the cycle and to rates,
+  market structure, bargaining power over suppliers and customers, and the growth of the addressable
+  market. It learns the investor's preferences from their choices.
+- **Report generator** (`report_generator/`): a full research report on one company (fair value,
+  competitors, value chain, industry and macro), callable from the screener's shortlist.
+
+Both run on LangGraph, use retrieval over SEC filings (RAG), and train small open-weight models with
+LoRA on the investor's feedback (RLHF).
 
 ## 📁 Project Structure
 
 ```text
 taurus-alpha/
-├── app/
-│   ├── __init__.py
-│   ├── state.py            # Global State 與 Pydantic Schemas
-│   ├── llm.py              # Shared Claude client (model, effort, refusal fallback)
-│   ├── reward.py           # Optional local LoRA reward model and rewriter (best-of-n, number guard)
-│   ├── scoring/            # Outcome scoring, human review pages, references, DPO export
-│   ├── agents/
-│   │   ├── planner.py      # Planner Agent
-│   │   ├── ingest.py       # Company intake: SEC lookup, filings, reported financials
-│   │   ├── market_data.py  # Peer table, financial history and macro series (no model calls)
-│   │   ├── web_research.py # Web Research Agent (cited web search and fetch)
-│   │   ├── retrieval.py    # Data Retrieval Agent
-│   │   ├── analysis.py     # Financial Analysis Agent
-│   │   ├── valuation.py    # Valuation Agent (company DCF or pipeline sum of the parts, plus P/E)
-│   │   ├── writer.py       # Investment thesis and rating
-│   │   ├── sections.py     # Memo sections: per-section retrieval, parallel writers, assembly
-│   │   ├── editor.py       # Editor review and revision loop for readability
-│   │   └── verifier.py     # Faithfulness check on the draft report
-│   ├── tools/
-│   │   ├── code_executor.py# Python Sandbox Calculation Tool
-│   │   ├── valuation.py    # DCF, P/E and risk-adjusted NPV math
-│   │   ├── sec.py          # SEC EDGAR: ticker lookup, filings, XBRL financials
-│   │   ├── peer_comps.py   # Margins, FCF and multiples from XBRL facts and closing prices
-│   │   ├── fred.py         # Macro series from FRED (no API key)
-│   │   ├── rag_search.py   # Hybrid Search & Metadata Index Tool
-│   │   └── embeddings.py   # Local embedding model for the dense half of search
-│   └── workflow.py         # LangGraph State Machine Design
+├── main.py                    # FastAPI entrypoint: mounts both routers
+├── core/                      # Shared by both parts
+│   ├── llm.py                 # Claude client: models, effort, caching, cost meter, web research
+│   ├── reward.py              # Client for local LoRA models (reward scores, rewriter)
+│   └── tools/
+│       ├── sec.py             # SEC EDGAR: ticker lookup, filings, XBRL company facts
+│       ├── fred.py            # Macro series from FRED (no API key)
+│       ├── prices.py          # Daily closes (Yahoo Finance chart endpoint)
+│       ├── peer_comps.py      # Margins, FCF and multiples from XBRL facts and closes
+│       ├── rag_search.py      # Hybrid BM25 + embedding search over filing pages
+│       └── embeddings.py      # Local embedding model for the dense half of search
+├── screener/
+│   ├── universe.py            # S&P 500/400/600 constituents with GICS sub-industry
+│   ├── fundamentals.py        # XBRL frames for the whole universe; margins, returns, F-score, elasticity
+│   ├── market.py              # Monthly prices; market, rate and leading-index betas
+│   ├── macro.py               # Composite leading index and the current cycle and rate regime
+│   ├── features.py            # Dataset build: company labels and industry aggregates
+│   ├── profiles.py            # Claude (or the LoRA labeler) classifies each sub-industry
+│   ├── evidence.py            # 10-K deep dive on shortlisted companies (RAG, cited)
+│   ├── preferences.py         # Feedback store, Bradley-Terry preference model, reward-model blend
+│   ├── graph.py               # LangGraph wizard with interrupt() steps and a SQLite checkpointer
+│   ├── api.py                 # /screener page and /screen endpoints
+│   ├── static/screener.html   # The wizard (Traditional Chinese)
+│   └── training/              # LoRA labeler (SFT) and preference reward model; data export
+├── report_generator/
+│   ├── agents/                # Planner, ingest, market data, web research, retrieval, analysis,
+│   │                          # valuation, thesis, sections, editor, verifier
+│   ├── tools/                 # Valuation math, Python calculation sandbox
+│   ├── scoring/               # Outcome scoring, review and compare pages, references, DPO export
+│   ├── training/              # LoRA reward model and DPO rewriter
+│   ├── state.py, workflow.py  # State schema and LangGraph pipeline
+│   ├── run_log.py             # Run records in runs/
+│   └── api.py                 # /research endpoints
 ├── scripts/
-│   ├── fetch_filings.py    # Download latest 10-K/10-Q from SEC EDGAR
-│   ├── train_reward_model.py  # LoRA reward model on preference pairs (GPU)
-│   ├── train_dpo_rewriter.py  # LoRA + DPO memo rewriter (GPU)
-│   └── serve_local_model.py   # HTTP server for both adapters
-├── data/filings/           # Page-level JSONL chunks loaded into the search index
-├── runs/                   # Run records, scores and human reviews (gitignored)
-├── main.py                 # FastAPI Entrypoint
+│   ├── build_screener_data.py # Free data build for the screener (SEC, Yahoo, FRED)
+│   ├── classify_industries.py # Claude industry profiles (paid; estimates first)
+│   ├── fetch_filings.py       # Download latest 10-K/10-Q from SEC EDGAR
+│   └── serve_local_model.py   # HTTP server for the LoRA adapters
+├── tests/                     # pytest, no network or Claude calls
+├── data/                      # Filings, caches, screener dataset and feedback (gitignored)
+├── runs/                      # Report run records and reviews (gitignored)
 ├── requirements.txt
-├── requirements-train.txt  # Optional training dependencies
-└── README.md
+└── requirements-train.txt     # Optional training dependencies
 ```
 
 ## 🚀 Getting Started
@@ -52,15 +68,82 @@ Requires **Python 3.10+**.
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=...        # see .env.example for optional overrides
-uvicorn main:app --reload
+export ANTHROPIC_API_KEY=...
+export SEC_USER_AGENT="your-name you@example.com"   # SEC requires a contact
+
+python scripts/build_screener_data.py               # free; 10-20 minutes the first time
+python scripts/classify_industries.py --estimate     # then without --estimate (about $3-5 for 153 industries)
+uvicorn main:app --reload                            # open http://localhost:8000/screener
 ```
+
+A single report without the screener:
 
 ```bash
 curl -X POST localhost:8000/research \
   -H 'Content-Type: application/json' \
   -d '{"company_name": "Moderna", "ticker": "MRNA", "query": "Price target from DCF and P/E, value by program, buy or sell?"}'
 ```
+
+Tests (no network or Claude calls): `PYTHONPATH=. pytest -q tests`
+
+## 🧭 Screener
+
+### Data (no model calls)
+
+- **Universe:** S&P 500 + MidCap 400 + SmallCap 600 from Wikipedia's constituent tables, about
+  1,500 companies in 153 GICS sub-industries, one row per company (dual share classes merged).
+- **Financials:** SEC XBRL frames. One request returns every filer's value for one line item and
+  one calendar period, so about 400 requests cover the universe for 2015 to last year. Banks without a
+  revenue total use net interest income plus noninterest income.
+- **Prices:** 10 years of monthly adjusted closes from Yahoo Finance; market cap uses the cover-page
+  share count.
+- **Macro:** ISM PMI isn't on FRED and the OECD leading indicator stopped in 2024, so a composite
+  leading index is built from the Conference Board LEI components that FRED carries (manufacturing
+  hours, jobless claims, building permits, capital-goods orders, the 10y-3m spread, sentiment).
+
+### The dimensions
+
+| Step | Label | How it is decided | Level |
+|---|---|---|---|
+| Growth or value | 成長 / 均衡 / 價值 | Growth percentile (3/5-year revenue CAGR, latest-quarter growth, 3-year earnings CAGR) minus value percentile (earnings, book, sales, FCF and dividend yields); a 15-point gap decides. The industry's nature is also judged by the model | Company or industry |
+| Size | 大型 / 中型 / 小型 | Market cap ≥ $20B, $5-20B, < $5B | Company |
+| Cycle | 高 / 中 / 低 | Mean percentile of market beta, beta to the leading index (market held fixed) and revenue elasticity to industrial production; tertiles | Company or industry |
+| Rates | 升息受害 / 不敏感 / 升息受惠 | Monthly return per 1 pp rise in the 10-year yield, market held fixed; \|t\| ≥ 1.65 | Company or industry |
+| Market structure | 獨占 / 寡占 / 壟斷性競爭 / 接近完全競爭 | Model judgment of the global market, given HHI and top-4 share among index members | Industry |
+| Bargaining power | 強 / 中 / 弱, over suppliers and over customers | Model judgment given gross margin level and stability, receivable and payable days | Industry; checked per company against its 10-K |
+| TAM growth | 高成長 / 中度成長 / 低成長 / 萎縮 | Model estimate of the 5-year market CAGR (≥ 10%, 4-10%, 0-4%, < 0), shown next to members' past revenue growth; one industry can be checked on the web | Industry |
+
+Then a **quality** bar: the sector-relative percentile of ROIC, ROE, gross and operating margin,
+FCF margin, Piotroski F-score, net debt/EBITDA, interest coverage and margin stability (banks and
+insurers use ROE, ROA, equity/assets, F-score and earnings stability instead), plus optional
+F-score, leverage and positive-FCF thresholds.
+
+### How the techniques are used
+
+- **LangGraph:** `screener/graph.py` is a state machine whose steps pause with `interrupt()` and
+  resume with the investor's answer (`Command(resume=...)`); answers can go back or jump to any
+  visited step. Sessions are checkpointed in SQLite, so they survive a restart.
+- **RAG:** a deep dive downloads a shortlisted company's latest 10-K into the shared hybrid index
+  and retrieves its competition, customer, supplier, pricing and market passages; Claude labels the
+  company's moat and bargaining power with each claim cited to a filing page.
+- **RLHF:** on the shortlist the investor rates companies and answers A-or-B questions. A
+  Bradley-Terry model on standardized features is refit on every answer and reranks the list (its
+  weight grows with the number of pairs); its strongest weights are shown as "你偏好…".
+  Corrections to any industry label win over the model from then on.
+- **LoRA:** `screener/training/train_pref_reward.py` trains a reward model on the same pairs (company
+  cards as text; a 0.5B base trains on a Mac), blended into the ranking with
+  `TAURUS_SCREEN_REWARD_URL`. `train_labeler.py` distills Claude's industry and 10-K labels, with
+  the investor's corrections taking precedence, into a small model; with `TAURUS_LABELER_URL` set
+  it labels industries first and Claude is only called when its answer doesn't validate.
+
+### Cost
+
+Only these steps call Claude (Sonnet 5.5): profiling the industries (once, about $0.03 each), the
+optional one-line goals at the start (about $0.01), a 10-K deep dive (about $0.08 per company,
+cached 30 days), a TAM web check (about $0.15) and the full report (about $3.60). The page asks
+before each paid step and shows the session's spend.
+
+# 📝 Report Generator
 
 ## 🔁 Research Flow
 

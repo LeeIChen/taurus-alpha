@@ -1,4 +1,4 @@
-# Optional: LoRA reward model and DPO rewriter (report_generator/training/train_*.py, scripts/serve_local_model.py).
+# Optional: LoRA models (report_generator/training/, screener/training/, scripts/serve_local_model.py).
 # Needs a CUDA GPU; not required to run the pipeline.
 torch>=2.3
 transformers>=4.46

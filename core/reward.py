@@ -42,9 +42,9 @@ def _post(url: str, payload: dict, timeout: float = 300.0) -> dict:
         return json.loads(resp.read())
 
 
-def score(prompt: str, texts: List[str]) -> List[float]:
-    """Reward-model scores for each text (higher is preferred)."""
-    scores = _post(f"{reward_url().rstrip('/')}/score", {"prompt": prompt, "texts": texts})["scores"]
+def score(prompt: str, texts: List[str], url: Optional[str] = None) -> List[float]:
+    """Reward-model scores for each text (higher is preferred). `url` defaults to TAURUS_REWARD_URL."""
+    scores = _post(f"{(url or reward_url()).rstrip('/')}/score", {"prompt": prompt, "texts": texts})["scores"]
     if len(scores) != len(texts):
         raise ValueError(f"reward model returned {len(scores)} scores for {len(texts)} texts")
     return [float(s) for s in scores]

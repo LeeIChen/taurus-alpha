@@ -15,6 +15,7 @@ from fastapi import FastAPI
 
 from core.tools.rag_search import default_index, load_filings
 from report_generator.api import router as report_router
+from screener.api import router as screener_router
 
 FILINGS_DIR = Path(os.environ.get("TAURUS_FILINGS_DIR", Path(__file__).parent / "data" / "filings"))
 logger = logging.getLogger("uvicorn.error")
@@ -29,6 +30,7 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="taurus-alpha", lifespan=lifespan)
+app.include_router(screener_router)
 app.include_router(report_router)
 
 

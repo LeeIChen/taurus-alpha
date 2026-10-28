@@ -103,6 +103,11 @@ def start_meter() -> List[dict]:
     return rows
 
 
+def meter_rows() -> List[dict]:
+    """The current run's cost rows so far (empty outside a metered run)."""
+    return _METER.get() or []
+
+
 def _current_step() -> str:
     try:
         from langgraph.config import get_config
@@ -277,14 +282,16 @@ WEB_TOOLS = [
 MAX_CONTINUATIONS = 5
 
 
-def ask_with_web(system: str, prompt: str, max_tokens: int = 64000) -> tuple:
+def ask_with_web(system: str, prompt: str, max_tokens: int = 64000, model: Optional[str] = None,
+                 effort: Optional[str] = None, tools: Optional[list] = None) -> tuple:
     """Research with web search/fetch. Returns (notes_text, sources).
 
     `sources` is a list of dicts {url, title, cited, snippet} in first-seen order.
     The model cites each fact with its URL in angle brackets; those are replaced with source
     numbers such as "[S3]" and the sources marked cited. (The dynamic-filtering web search tool
     returns text without structured citations, so inline URLs are the reliable link.) Structured
-    citations, when present, are used too.
+    citations, when present, are used too. `model`, `effort` and `tools` override the defaults
+    (the screener checks one industry's market size with fewer searches on a cheaper model).
     A turn that hits the server-side tool-iteration limit (stop_reason "pause_turn")
     is resumed by re-sending the conversation, as the API expects.
     """
@@ -314,15 +321,15 @@ def ask_with_web(system: str, prompt: str, max_tokens: int = 64000) -> tuple:
     assistant_blocks: list = []  # everything produced so far, for resuming paused turns
     for _ in range(MAX_CONTINUATIONS + 1):
         with get_client().beta.messages.stream(
-            model=MODEL,
+            model=model or MODEL,
             max_tokens=max_tokens,
             system=system,
             messages=messages,
-            tools=WEB_TOOLS,
+            tools=tools or WEB_TOOLS,
             # Automatic caching: with it on, server-side search writes cache entries after tool
             # results, so each search iteration re-reads the growing context at the cache rate.
             cache_control={"type": "ephemeral"},
-            output_config={"effort": EFFORT},
+            output_config={"effort": effort or EFFORT},
             thinking=_THINKING,
             **_FALLBACK_KWARGS,
         ) as stream:

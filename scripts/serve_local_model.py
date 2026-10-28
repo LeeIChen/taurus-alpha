@@ -1,13 +1,18 @@
-"""Serve the LoRA reward model and/or rewriter over HTTP for the pipeline (see core/reward.py).
+"""Serve LoRA adapters over HTTP (see core/reward.py and screener/profiles.py).
 
   REWARD_ADAPTER=models/reward-lora REWRITER_ADAPTER=models/rewriter-lora \
       uvicorn scripts.serve_local_model:app --port 8100
+  REWARD_ADAPTER=models/screen-reward-lora LABELER_ADAPTER=models/labeler-lora \
+      uvicorn scripts.serve_local_model:app --port 8101
 
-Then in .env: TAURUS_REWARD_URL=http://localhost:8100, TAURUS_BEST_OF=3,
-TAURUS_REWRITER_URL=http://localhost:8100. Either adapter can be left out.
+Report generator (.env): TAURUS_REWARD_URL=http://localhost:8100, TAURUS_BEST_OF=3,
+TAURUS_REWRITER_URL=http://localhost:8100.
+Screener (.env): TAURUS_SCREEN_REWARD_URL=http://localhost:8101, TAURUS_LABELER_URL=http://localhost:8101.
+Any adapter can be left out.
 
 POST /score   {"prompt", "texts": [...]} -> {"scores": [...]}  (higher is preferred)
 POST /rewrite {"prompt", "text"}         -> {"text"}
+POST /label   {"prompt"}                 -> {"text"}  (label JSON from the distilled labeler)
 """
 
 from __future__ import annotations
@@ -58,6 +63,20 @@ def rewriter_model():
     return tok, PeftModel.from_pretrained(base, adapter).eval()
 
 
+@lru_cache(maxsize=1)
+def labeler_model():
+    import torch
+    from peft import PeftModel
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    adapter = os.environ.get("LABELER_ADAPTER")
+    if not adapter:
+        raise HTTPException(404, "LABELER_ADAPTER is not set")
+    tok = AutoTokenizer.from_pretrained(adapter)
+    base = AutoModelForCausalLM.from_pretrained(_base(adapter), torch_dtype=torch.bfloat16, device_map="auto")
+    return tok, PeftModel.from_pretrained(base, adapter).eval()
+
+
 class ScoreIn(BaseModel):
     prompt: str
     texts: List[str]
@@ -66,6 +85,10 @@ class ScoreIn(BaseModel):
 class RewriteIn(BaseModel):
     prompt: str
     text: str
+
+
+class LabelIn(BaseModel):
+    prompt: str
 
 
 @app.post("/score")
@@ -90,4 +113,16 @@ def rewrite(body: RewriteIn) -> dict:
     ids = tok.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt").to(model.device)
     with torch.no_grad():
         out = model.generate(ids, max_new_tokens=8192, do_sample=False)
+    return {"text": tok.decode(out[0, ids.shape[1]:], skip_special_tokens=True)}
+
+
+@app.post("/label")
+def label(body: LabelIn) -> dict:
+    import torch
+
+    tok, model = labeler_model()
+    messages = [{"role": "user", "content": body.prompt}]  # as in screener/training/train_labeler.py
+    ids = tok.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        out = model.generate(ids, max_new_tokens=2048, do_sample=False)
     return {"text": tok.decode(out[0, ids.shape[1]:], skip_special_tokens=True)}
