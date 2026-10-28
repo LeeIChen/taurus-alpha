@@ -277,7 +277,7 @@ function currentSelect() { const o = {}; for (const [k, v] of Object.entries(dra
 
 // ---- steps ----
 function renderOverview() {
-  const miss = S.missing_profiles ? `<div class="banner warn">還有 ${S.missing_profiles} 個產業沒有市場結構、議價力與 TAM 的分類（需要 Claude，約 ${usd(S.missing_profiles * 0.03)}）。
+  const miss = S.missing_profiles ? `<div class="banner warn">還有 ${S.missing_profiles} 個產業沒有市場結構、議價力與 TAM 的分類（需要 Claude，約 ${usd(S.missing_profiles * 0.015)}）。
       <button class="btn small" id="classify">分類這些產業</button></div>` : "";
   return `${miss}<div class="panel"><h2>${esc(S.title)}</h2>
       <p class="explain">資料更新：${esc(S.built_at)} · 共 ${S.remaining} 家公司（S&P 500 + 400 + 600）</p>${regimeHTML(S.regime)}</div>

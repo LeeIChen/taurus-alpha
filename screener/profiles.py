@@ -35,7 +35,7 @@ logger = logging.getLogger("uvicorn.error")
 PROFILES_PATH = DATA_DIR / "industry_profiles.json"
 OVERRIDES_PATH = DATA_DIR / "label_overrides.json"
 PROFILE_EFFORT = os.environ.get("TAURUS_PROFILE_EFFORT", "medium")
-EST_USD_PER_INDUSTRY = 0.03  # Sonnet, ~2k tokens in and ~2k out including thinking; replaced by measured cost
+EST_USD_PER_INDUSTRY = 0.015  # measured: Sonnet, ~1.9k tokens in, ~0.9k out, $0.013 each
 EST_USD_PER_TAM_CHECK = 0.15  # Sonnet with up to 3 searches and 1 fetch
 
 STRUCTURES = ["獨占", "寡占", "壟斷性競爭", "接近完全競爭"]

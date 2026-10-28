@@ -72,7 +72,7 @@ export ANTHROPIC_API_KEY=...
 export SEC_USER_AGENT="your-name you@example.com"   # SEC requires a contact
 
 python scripts/build_screener_data.py               # free; 10-20 minutes the first time
-python scripts/classify_industries.py --estimate     # then without --estimate (about $3-5 for 153 industries)
+python scripts/classify_industries.py --estimate     # then without --estimate (about $2 for 153 industries)
 uvicorn main:app --reload                            # open http://localhost:8000/screener
 ```
 
@@ -138,7 +138,7 @@ F-score, leverage and positive-FCF thresholds.
 
 ### Cost
 
-Only these steps call Claude (Sonnet 5.5): profiling the industries (once, about $0.03 each), the
+Only these steps call Claude (Sonnet 5.5): profiling the industries (once, about $0.013 each), the
 optional one-line goals at the start (about $0.01), a 10-K deep dive (about $0.08 per company,
 cached 30 days), a TAM web check (about $0.15) and the full report (about $3.60). The page asks
 before each paid step and shows the session's spend.
