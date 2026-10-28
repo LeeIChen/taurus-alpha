@@ -394,8 +394,9 @@ def deep_dive(state: ScreenState) -> Dict[str, Any]:
             return t, {"error": f"{type(exc).__name__}: {exc}"}
 
     tickers = state.get("pending_deep_dive") or []
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        for t, res in pool.map(lambda t: contextvars.copy_context().run(one, t), tickers):
+    with ThreadPoolExecutor(max_workers=4) as pool:  # contexts copied in this thread, so the meter sees each call
+        for f in [pool.submit(contextvars.copy_context().run, one, t) for t in tickers]:
+            t, res = f.result()
             results[t] = res
     cost = sum(r["usd"] for r in meter_rows()[before:])
     return {"deep_dives": results, "pending_deep_dive": [], "cost_usd": (state.get("cost_usd") or 0) + cost}

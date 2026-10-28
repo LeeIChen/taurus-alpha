@@ -169,8 +169,10 @@ def classify_all(industries: Dict[str, Dict[str, Any]], companies: Dict[str, Dic
             failed.append(name)
             logger.warning("Profile %s failed: %s", name, exc)
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:  # copy the context so the cost meter sees each call
-        list(pool.map(lambda n: contextvars.copy_context().run(run, n), todo))
+    # Copy the context here, in the caller's thread, so each call lands in the caller's cost meter
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for f in [pool.submit(contextvars.copy_context().run, run, n) for n in todo]:
+            f.result()
     return {"profiled": done, "failed": failed}
 
 

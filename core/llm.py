@@ -105,7 +105,8 @@ def start_meter() -> List[dict]:
 
 def meter_rows() -> List[dict]:
     """The current run's cost rows so far (empty outside a metered run)."""
-    return _METER.get() or []
+    rows = _METER.get()
+    return rows if rows is not None else []
 
 
 def _current_step() -> str:
