@@ -1,14 +1,14 @@
 """Thesis: sets the rating, price target, thesis points, risks and catalysts.
 
-The memo itself is written section by section in app/agents/sections.py."""
+The memo itself is written section by section in report_generator/agents/sections.py."""
 
 from __future__ import annotations
 
 import json
 
-from app.agents.analysis import shared_evidence
-from app.agents.schemas import run_step
-from app.state import InvestmentAgentState
+from report_generator.agents.analysis import shared_evidence
+from report_generator.agents.schemas import run_step
+from report_generator.state import InvestmentAgentState
 
 THESIS_SYSTEM = """You are the senior analyst who owns the recommendation. Using the valuation,
 computed metrics, research notes and filings, set the investment thesis.

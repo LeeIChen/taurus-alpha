@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from app.state import ValuationAssumptions, ValuationResult
+from report_generator.state import ValuationAssumptions, ValuationResult
 
 SENSITIVITY_RATE_STEP = 0.01
 SENSITIVITY_GROWTH_STEP = 0.005
@@ -65,7 +65,7 @@ def value_company(a: ValuationAssumptions, current_price: Optional[float] = None
 from datetime import date as _date
 from typing import Dict as _Dict, List as _List
 
-from app.state import PipelineAssumptions, PipelineValuationResult, ProgramAssumption, ProgramValue
+from report_generator.state import PipelineAssumptions, PipelineValuationResult, ProgramAssumption, ProgramValue
 
 HORIZON_YEARS = 20
 LAUNCH_MARGIN = -0.20  # launch year carries heavy selling cost; margin reaches target by year 4

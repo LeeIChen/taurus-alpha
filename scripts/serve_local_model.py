@@ -1,4 +1,4 @@
-"""Serve the LoRA reward model and/or rewriter over HTTP for the pipeline (see app/reward.py).
+"""Serve the LoRA reward model and/or rewriter over HTTP for the pipeline (see core/reward.py).
 
   REWARD_ADAPTER=models/reward-lora REWRITER_ADAPTER=models/rewriter-lora \
       uvicorn scripts.serve_local_model:app --port 8100

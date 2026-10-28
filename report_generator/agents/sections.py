@@ -20,13 +20,13 @@ from typing import Any, Dict, List
 
 from langgraph.types import Send
 
-from app import reward
-from app.agents.analysis import format_documents, market_tables
-from app.agents.schemas import MEMO_READ_TIMEOUT
-from app.agents.writer import valuation_payload
-from app.llm import WRITER_EFFORT, WRITER_MODEL, ask_text
-from app.state import InvestmentAgentState
-from app.tools.rag_search import InMemoryIndex, canonical_company, rag_search
+from core import reward
+from report_generator.agents.analysis import format_documents, market_tables
+from report_generator.agents.schemas import MEMO_READ_TIMEOUT
+from report_generator.agents.writer import valuation_payload
+from core.llm import WRITER_EFFORT, WRITER_MODEL, ask_text
+from report_generator.state import InvestmentAgentState
+from core.tools.rag_search import InMemoryIndex, canonical_company, rag_search
 
 logger = logging.getLogger("uvicorn.error")
 

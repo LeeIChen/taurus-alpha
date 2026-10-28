@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-from app.agents.analysis import format_documents, shared_evidence
-from app.agents.sections import cited_pages
-from app.agents.writer import valuation_payload
-from app.agents.schemas import run_step
-from app.state import InvestmentAgentState
+from report_generator.agents.analysis import format_documents, shared_evidence
+from report_generator.agents.sections import cited_pages
+from report_generator.agents.writer import valuation_payload
+from report_generator.agents.schemas import run_step
+from report_generator.state import InvestmentAgentState
 
 SYSTEM = """You audit investment memos for faithfulness. Check every factual claim and number in
 the draft against the filing pages, SEC-reported financials, web research notes (whose statements

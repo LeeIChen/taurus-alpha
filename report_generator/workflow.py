@@ -15,18 +15,18 @@ from typing import Any, Dict, Optional
 from langgraph.graph import END, START, StateGraph
 from pydantic import TypeAdapter
 
-from app.agents.analysis import analysis_node
-from app.agents.editor import after_editor, editor_node, reviser_node
-from app.agents.ingest import ingest_node
-from app.agents.market_data import market_data_node
-from app.agents.planner import plan_node
-from app.agents.retrieval import retrieval_node
-from app.agents.sections import assemble_node, fan_out, sections_node, write_section
-from app.agents.valuation import valuation_node
-from app.agents.verifier import verifier_node
-from app.agents.web_research import web_research_node
-from app.agents.writer import thesis_node
-from app.state import InvestmentAgentState
+from report_generator.agents.analysis import analysis_node
+from report_generator.agents.editor import after_editor, editor_node, reviser_node
+from report_generator.agents.ingest import ingest_node
+from report_generator.agents.market_data import market_data_node
+from report_generator.agents.planner import plan_node
+from report_generator.agents.retrieval import retrieval_node
+from report_generator.agents.sections import assemble_node, fan_out, sections_node, write_section
+from report_generator.agents.valuation import valuation_node
+from report_generator.agents.verifier import verifier_node
+from report_generator.agents.web_research import web_research_node
+from report_generator.agents.writer import thesis_node
+from report_generator.state import InvestmentAgentState
 
 NODES = {
     "planner": plan_node,

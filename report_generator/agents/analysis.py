@@ -5,10 +5,10 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List
 
-from app.agents.schemas import run_step
-from app.state import FinancialMetricResult, InvestmentAgentState
-from app.tools import fred, peer_comps
-from app.tools.code_executor import run_python
+from report_generator.agents.schemas import run_step
+from report_generator.state import FinancialMetricResult, InvestmentAgentState
+from core.tools import fred, peer_comps
+from report_generator.tools.code_executor import run_python
 
 SYSTEM = """You are a buy-side financial analyst. Using the provided filing pages, SEC-reported
 financials and sourced web research notes, compute each required metric. For every metric, write a

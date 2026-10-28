@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from app.llm import ask_structured
-from app.state import InvestmentAgentState, TaskPlan
-from app.tools.rag_search import available_companies
+from core.llm import ask_structured
+from report_generator.state import InvestmentAgentState, TaskPlan
+from core.tools.rag_search import available_companies
 
 SYSTEM = """You are the planning lead of an equity research team covering listed companies.
 Break the user's investment question into 4-8 focused research tasks and list the financial metrics

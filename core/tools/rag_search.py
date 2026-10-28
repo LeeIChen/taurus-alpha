@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from app.tools.embeddings import Embedder, embed_with_cache, get_default_embedder, split_windows
+from core.tools.embeddings import Embedder, embed_with_cache, get_default_embedder, split_windows
 
 _TOKEN = re.compile(r"[a-z0-9]+")
 RRF_K = 60  # standard RRF damping constant

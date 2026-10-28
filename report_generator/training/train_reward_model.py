@@ -9,8 +9,8 @@ several candidates and keep the one the reward model scores highest (best-of-n).
 Needs a CUDA GPU (about 24 GB with --load-in-4bit, 40 GB+ in bf16 for 8k-token memos); it will not
 train in reasonable time on a Mac. Install: pip install -r requirements-train.txt
 
-  python scripts/train_reward_model.py --out models/reward-lora
-  python scripts/train_reward_model.py --base Qwen/Qwen2.5-7B-Instruct --editor-pairs --epochs 2
+  python report_generator/training/train_reward_model.py --out models/reward-lora
+  python report_generator/training/train_reward_model.py --base Qwen/Qwen2.5-7B-Instruct --editor-pairs --epochs 2
 
 Rule of thumb: below about 200 human pairs the model mostly learns the editor's style; check the
 held-out accuracy it prints before trusting it.
@@ -23,7 +23,7 @@ import json
 import random
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 REVIEWS = ROOT / "runs" / "reviews"
 
 

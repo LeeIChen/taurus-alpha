@@ -83,19 +83,19 @@ curl -X POST localhost:8000/research \
 6. **Analysis** computes metrics by running code, citing filings, web sources or XBRL.
 7. **Valuation** picks a method: a company-level DCF, or for pipeline companies a sum of the
    parts with one risk-adjusted NPV per product or program (probability of success from cited
-   benchmarks). Both add a P/E value on risk-adjusted earnings; `app/tools/valuation.py` does the math.
+   benchmarks). Both add a P/E value on risk-adjusted earnings; `report_generator/tools/valuation.py` does the math.
 8. **Thesis** sets the rating (Buy / Hold / Sell), price target, thesis, risks and dated catalysts.
 9. **Sections** fan out with LangGraph `Send`: eight writers run in parallel, one per section
    (summary, company and latest results, industry with five forces, value chain, competition,
    macro, valuation, catalysts and risks). Each retrieves its own filing pages (and peers' pages
    for industry and competition) and research-note paragraphs for its own queries, on top of a
    compact core (thesis, valuation, metrics, the computed tables). **Assemble** adds the title
-   block, numbered headings and the cited-source list in code (`app/agents/sections.py`). A question
+   block, numbered headings and the cited-source list in code (`report_generator/agents/sections.py`). A question
    written in Chinese gets the memo in Traditional Chinese.
 10. **Editor** reviews the memo for readability: automatic checks (outline, length, process talk
    such as "not retrieved") plus a rubric (conclusion first, no repetition, prose over fragments).
    While it has notes, the **reviser** rewrites the memo and the editor looks again, at most twice
-   (`app/agents/editor.py`). The editor never judges facts.
+   (`report_generator/agents/editor.py`). The editor never judges facts.
 11. **Verifier** scores how well the final memo is supported by the evidence, including the pages
    only the section writers retrieved.
 
@@ -109,7 +109,7 @@ Web search must be enabled for your organization in the Claude Console.
 the same evidence block: SEC financials, the computed tables, sources, research notes and filing
 pages (at most 32 target and 8 peer pages, about 50k tokens). They share one
 system prompt and put the evidence first, with each step's instructions and JSON schema after it
-(`app/agents/schemas.py`), so that block is a byte-identical cached prefix: the first step writes it
+(`report_generator/agents/schemas.py`), so that block is a byte-identical cached prefix: the first step writes it
 (5-minute TTL, restarted by every read) and the others read it at the cache rate (5% of the
 input price on Opus 5.5).
 
@@ -159,7 +159,7 @@ is gitignored.
 
 Every saved run can be checked against what actually happened, and reviewed by a person.
 
-**Automatic scoring** (`python -m app.scoring.score`, or `GET /scores`): the price at the run,
+**Automatic scoring** (`python -m report_generator.scoring.score`, or `GET /scores`): the price at the run,
 return and excess return vs SPY at 30, 90, 180 and 365 days, whether the rating's direction was
 right (Buy beat SPY, Sell lagged it, Hold stayed within ±10%), and the 12-month target error.
 Results go to `runs/scores.json`. Prices come from Yahoo Finance's public chart endpoint, cached in
@@ -182,7 +182,7 @@ with the notes applied); it is AI feedback, kept separate from human pairs.
 app), import it as a reference run; it then appears on `/compare`:
 
 ```bash
-python -m app.scoring.reference "data/Wayfair (NYSE W) 股票研究報告.docx" --company Wayfair --ticker W \
+python -m report_generator.scoring.reference "data/Wayfair (NYSE W) 股票研究報告.docx" --company Wayfair --ticker W \
     --label claude-app --query "幫我生成Wayfair股票研究報告，要包含合理股價，競爭對手，價值鏈，產業分析，總經分析"
 ```
 
@@ -191,14 +191,14 @@ python -m app.scoring.reference "data/Wayfair (NYSE W) 股票研究報告.docx" 
 Claude can't be fine-tuned on this data, so the preferences train a small open-weight model that
 improves Claude's output instead (`pip install -r requirements-train.txt`, CUDA GPU):
 
-1. **Reward model** (`scripts/train_reward_model.py`): LoRA on a 7-8B model with a scalar head,
+1. **Reward model** (`report_generator/training/train_reward_model.py`): LoRA on a 7-8B model with a scalar head,
    trained on your `/compare` pairs (plus `--editor-pairs` to warm up). It prints held-out pairwise
    accuracy; aim for a few hundred human pairs before trusting it.
 2. **Best-of-n**: serve it (`uvicorn scripts.serve_local_model:app --port 8100` with
    `REWARD_ADAPTER=models/reward-lora`) and set `TAURUS_REWARD_URL=http://localhost:8100` and
    `TAURUS_BEST_OF=3`. Each section writer then drafts three candidates and keeps the top-scored
    one; all candidates and scores are saved in `section_candidates`. This multiplies section cost by n.
-3. **Rewriter** (`scripts/train_dpo_rewriter.py`): DPO + LoRA on the editor pairs, learning
+3. **Rewriter** (`report_generator/training/train_dpo_rewriter.py`): DPO + LoRA on the editor pairs, learning
    draft + notes -> revision. With `TAURUS_REWRITER_URL` set, the reviser tries it first and keeps
    its output only if it adds no number that was not in the draft; otherwise Claude revises.
 
@@ -214,7 +214,7 @@ The analysis agent values the company two ways and blends them:
 
 Claude picks the inputs: reported figures cited from the filings, and projections
 (growth, WACC, multiple, blend weight) justified in a written rationale.
-`app/tools/valuation.py` then does the math, including a WACC × terminal-growth
+`report_generator/tools/valuation.py` then does the math, including a WACC × terminal-growth
 sensitivity grid. The filings contain no share prices, so pass the optional
 `current_price` to get upside/downside.
 
@@ -225,5 +225,5 @@ Microsoft, Alphabet, Amazon and Meta"), retrieval also searches that company's f
 planner's peer tickers are downloaded automatically in the market-data step, and the industry and
 competition sections search each peer's filings directly.
 
-`app/tools/code_executor.py` is not a security
+`report_generator/tools/code_executor.py` is not a security
 sandbox; run the service in a container before exposing it.

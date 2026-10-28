@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from app.run_log import RUNS_DIR
+from report_generator.run_log import RUNS_DIR
 
 REVIEW_DIR = RUNS_DIR / "reviews"
 SECTIONS = ("research_and_sources", "valuation_assumptions", "thesis_and_catalysts", "memo_clarity")

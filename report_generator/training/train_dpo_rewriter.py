@@ -7,11 +7,11 @@ draft as it was. Human pairs from the compare page can be added with --human-pai
 
 Output: a LoRA adapter for a causal LM. Serve it with scripts/serve_local_model.py and set
 TAURUS_REWRITER_URL; the reviser then tries it before Claude and keeps its output only if it adds
-no number that was not in the draft (app/reward.py: numbers_preserved).
+no number that was not in the draft (core/reward.py: numbers_preserved).
 
 Needs a CUDA GPU (about 24 GB with --load-in-4bit). Install: pip install -r requirements-train.txt
 
-  python scripts/train_dpo_rewriter.py --out models/rewriter-lora
+  python report_generator/training/train_dpo_rewriter.py --out models/rewriter-lora
 """
 
 from __future__ import annotations
@@ -20,10 +20,10 @@ import argparse
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 REVIEWS = ROOT / "runs" / "reviews"
 
-# Must match what app/agents/editor.py sends: reward.rewrite(f"{REVISE_SYSTEM}\n\nEditor's notes:\n...", memo)
+# Must match what report_generator/agents/editor.py sends: reward.rewrite(f"{REVISE_SYSTEM}\n\nEditor's notes:\n...", memo)
 # and how serve_local_model.py builds the user message.
 REVISE_SYSTEM = """You are revising an equity research memo to apply the editor's notes. Apply every
 note. Keep the rating, price target, every number and every citation as they are, and add no fact

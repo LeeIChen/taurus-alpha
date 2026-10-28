@@ -12,8 +12,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
-from app.llm import ask_json
-from app.state import Citation, InvestmentAgentState, InvestmentThesis, PipelineAssumptions, ValuationAssumptions
+from core.llm import ask_json
+from report_generator.state import Citation, InvestmentAgentState, InvestmentThesis, PipelineAssumptions, ValuationAssumptions
 
 
 class MetricDraft(BaseModel):

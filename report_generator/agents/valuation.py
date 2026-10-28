@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import json
 from datetime import date
-from app.agents.analysis import shared_evidence
-from app.agents.schemas import run_step
-from app.state import InvestmentAgentState
-from app.tools.valuation import value_company, value_pipeline
+from report_generator.agents.analysis import shared_evidence
+from report_generator.agents.schemas import run_step
+from report_generator.state import InvestmentAgentState
+from report_generator.tools.valuation import value_company, value_pipeline
 
 SYSTEM = """You are the valuation lead on an equity research team. Choose the method:
 - "pipeline_sotp" when a material part of value depends on products not yet approved or launched

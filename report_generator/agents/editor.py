@@ -13,13 +13,13 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from app import reward
-from app.agents.schemas import MEMO_READ_TIMEOUT
-from app.llm import WRITER_EFFORT, WRITER_MODEL, ask_json, ask_text
-from app.state import InvestmentAgentState
+from core import reward
+from report_generator.agents.schemas import MEMO_READ_TIMEOUT
+from core.llm import WRITER_EFFORT, WRITER_MODEL, ask_json, ask_text
+from report_generator.state import InvestmentAgentState
 
 MAX_REVISIONS = 1
-# Prose budget: the section budgets in app/agents/sections.py add up to about 2,100 words.
+# Prose budget: the section budgets in report_generator/agents/sections.py add up to about 2,100 words.
 MAX_WORDS = 2400
 REQUIRED_SECTIONS = 8
 _PROCESS_TALK = re.compile(r"not retrieved|were not available|research tasks?|we searched|未取得|研究任務", re.I)
@@ -43,7 +43,7 @@ REVISE_SYSTEM = """You are revising an equity research memo to apply the editor'
 note. Keep the rating, price target, every number and every citation as they are, and add no fact
 that is not already in the memo or the evidence. Keep the outline and headings. Return the full
 revised memo."""
-# The rewriter's training prompt (scripts/train_dpo_rewriter.py) must match REVISE_SYSTEM.
+# The rewriter's training prompt (report_generator/training/train_dpo_rewriter.py) must match REVISE_SYSTEM.
 
 
 class EditReview(BaseModel):

@@ -15,8 +15,8 @@ import logging
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.scoring import prices
-from app.tools.sec import company_facts, resolve_company
+from core.tools import prices
+from core.tools.sec import company_facts, resolve_company
 
 logger = logging.getLogger("uvicorn.error")
 

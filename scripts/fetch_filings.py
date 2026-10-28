@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.tools.sec import KNOWN_COMPANIES, fetch_company_filings, resolve_company  # noqa: E402
+from core.tools.sec import KNOWN_COMPANIES, fetch_company_filings, resolve_company  # noqa: E402
 
 
 def main() -> None:

@@ -14,8 +14,8 @@ import logging
 from collections import Counter
 from typing import Any, Dict
 
-from app.state import InvestmentAgentState
-from app.tools.rag_search import canonical_company, companies_mentioned, rag_search
+from report_generator.state import InvestmentAgentState
+from core.tools.rag_search import canonical_company, companies_mentioned, rag_search
 
 logger = logging.getLogger("uvicorn.error")
 

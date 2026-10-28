@@ -7,8 +7,8 @@ from datetime import date
 
 import anthropic
 
-from app.llm import ask_with_web
-from app.state import InvestmentAgentState, Source
+from core.llm import ask_with_web
+from report_generator.state import InvestmentAgentState, Source
 
 logger = logging.getLogger("uvicorn.error")
 

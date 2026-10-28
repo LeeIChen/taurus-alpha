@@ -6,12 +6,12 @@ Automatic (needs only prices):
   Hold if it stayed within ±10% of SPY.
 - 12-month target error: (price after 365 days - target) / target.
 
-Needs human review (app/scoring/reviews.py):
+Needs human review (report_generator/scoring/reviews.py):
 - Catalyst outcomes once their date has passed.
 - Probability-of-success calibration (Brier score) once a program's outcome is known.
 - Analyst quality scores and pairwise preferences.
 
-Usage: python -m app.scoring.score      (prints a table, writes runs/scores.json)
+Usage: python -m report_generator.scoring.score      (prints a table, writes runs/scores.json)
 """
 
 from __future__ import annotations
@@ -22,9 +22,9 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from app.run_log import RUNS_DIR
-from app.scoring import prices
-from app.scoring.reviews import load_reviews
+from report_generator.run_log import RUNS_DIR
+from core.tools import prices
+from report_generator.scoring.reviews import load_reviews
 
 HORIZONS = (30, 90, 180, 365)
 BENCHMARK = "SPY"
@@ -56,7 +56,7 @@ def run_summary(record: Dict[str, Any]) -> Dict[str, Any]:
             target = r[key].get("target_price")
     ticker = r.get("ticker") or req.get("ticker")
     if not ticker:
-        from app.tools.sec import resolve_company  # older runs stored only the company name
+        from core.tools.sec import resolve_company  # older runs stored only the company name
         try:
             ticker = resolve_company(req["company_name"])["ticker"]
         except Exception:  # resolution is best-effort for legacy records

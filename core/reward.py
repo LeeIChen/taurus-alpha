@@ -1,4 +1,4 @@
-"""Optional local models trained on your preferences (see scripts/train_*.py), served over HTTP.
+"""Optional local models trained on your preferences (see report_generator/training/train_*.py), served over HTTP.
 
 - TAURUS_REWARD_URL: a reward model (LoRA on an open-weight model) that scores candidate texts.
   Section writers then draft TAURUS_BEST_OF candidates and keep the highest-scoring one.

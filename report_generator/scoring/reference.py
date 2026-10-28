@@ -4,7 +4,7 @@ The reference is saved like a run, with status "reference", so the compare page 
 a pipeline run and the preference you record becomes a DPO pair. It is never scored for returns.
 
 Usage:
-  python -m app.scoring.reference "data/Wayfair (NYSE W) 股票研究報告.docx" --company Wayfair --ticker W \
+  python -m report_generator.scoring.reference "data/Wayfair (NYSE W) 股票研究報告.docx" --company Wayfair --ticker W \
       --query "幫我生成Wayfair股票研究報告，要包含合理股價，競爭對手，價值鏈，產業分析，總經分析"
 Accepts .docx or .md/.txt.
 """
@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from app.run_log import RUNS_DIR
+from report_generator.run_log import RUNS_DIR
 
 _HEADINGS = {"Heading1": "# ", "Heading2": "## ", "Heading3": "### ", "Title": "# "}
 

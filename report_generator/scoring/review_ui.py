@@ -13,10 +13,10 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from app.run_log import RUNS_DIR
-from app.scoring.reviews import SECTIONS, add_preference, add_review, export_dpo, export_editor_pairs, load_preferences, load_reviews
-from app.scoring.reference import reference_runs
-from app.scoring.score import score_all
+from report_generator.run_log import RUNS_DIR
+from report_generator.scoring.reviews import SECTIONS, add_preference, add_review, export_dpo, export_editor_pairs, load_preferences, load_reviews
+from report_generator.scoring.reference import reference_runs
+from report_generator.scoring.score import score_all
 
 router = APIRouter()
 e = lambda v: html.escape(str(v if v is not None else "—"))
