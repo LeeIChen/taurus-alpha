@@ -45,6 +45,7 @@ KNOWN_COMPANIES = {
 }
 
 _lock = threading.Lock()
+_manifest_lock = threading.Lock()  # parallel fetches (screener checks) update the same manifest
 
 
 class SecAccessError(RuntimeError):
@@ -249,10 +250,13 @@ def fetch_company_filings(
 
 def _update_manifest(out: Path, entry: dict) -> None:
     path = out / "manifest.json"
-    manifest = json.loads(path.read_text()) if path.exists() else []
-    manifest = [m for m in manifest if not (m["ticker"] == entry["ticker"] and m["form"] == entry["form"])]
-    manifest.append(entry)
-    path.write_text(json.dumps(sorted(manifest, key=lambda m: (m["ticker"], m["form"])), indent=2) + "\n")
+    with _manifest_lock:
+        manifest = json.loads(path.read_text()) if path.exists() else []
+        manifest = [m for m in manifest if not (m["ticker"] == entry["ticker"] and m["form"] == entry["form"])]
+        manifest.append(entry)
+        tmp = path.with_suffix(".tmp")  # write then rename, so a reader never sees half a file
+        tmp.write_text(json.dumps(sorted(manifest, key=lambda m: (m["ticker"], m["form"])), indent=2) + "\n")
+        tmp.replace(path)
 
 
 def filings_are_fresh(ticker: str, out: Path = FILINGS_DIR) -> bool:
