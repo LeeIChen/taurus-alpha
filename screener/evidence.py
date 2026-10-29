@@ -79,16 +79,17 @@ def cached(ticker: str) -> Optional[Dict[str, Any]]:
     return None
 
 
-def filing_pages(ticker: str, company: str, cik: int) -> List[Dict[str, Any]]:
+def filing_pages(ticker: str, company: str, cik: int, queries: Optional[Dict[str, str]] = None,
+                 max_pages: int = MAX_PAGES) -> List[Dict[str, Any]]:
     paths = fetch_company_filings(ticker, company, cik, forms=["10-K"])
     add_filing_files(paths)
     seen, pages = set(), []
-    for q in QUERIES.values():
+    for q in (queries or QUERIES).values():
         for d in default_index.search(q, filters={"ticker": [ticker], "doc_type": ["10-K"]}, top_k=PAGES_PER_QUERY):
             if d["doc_id"] not in seen:
                 seen.add(d["doc_id"])
                 pages.append(d)
-    return pages[:MAX_PAGES]
+    return pages[:max_pages]
 
 
 def _fmt(v: Optional[float], pct: bool = True) -> str:

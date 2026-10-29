@@ -38,6 +38,7 @@ ORDINALS = {
     "market_structure": {"獨占": 3, "寡占": 2, "壟斷性競爭": 1, "接近完全競爭": 0},
     "supplier_power": {"強": 2, "中": 1, "弱": 0},
     "customer_power": {"強": 2, "中": 1, "弱": 0},
+    "bottleneck": {"關鍵瓶頸": 2, "部分瓶頸": 1, "非瓶頸": 0},
 }
 # feature -> label shown to the investor
 FEATURES = {
@@ -47,8 +48,11 @@ FEATURES = {
     "revenue_cagr_3y": "3 年營收成長", "momentum_12m": "12 個月股價動能", "log_market_cap": "市值規模",
     "piotroski": "Piotroski F 分數", "dividend_yield": "股息殖利率", "tam_cagr": "TAM 成長",
     "market_structure": "市場集中度", "customer_power": "對客戶議價力", "supplier_power": "對供應商議價力",
+    "revenue_quality_score": "營收品質", "implied_gap": "股價隱含的成長預期", "return_spread": "ROIC 減 WACC",
+    "crowding_score": "擁擠度", "drawdown_12m": "離 12 個月高點", "bottleneck": "產業瓶頸地位",
 }
-CLIP = {"net_debt_to_ebitda": (-5, 10), "roic": (-0.5, 1.0), "revenue_cagr_3y": (-0.5, 1.0), "momentum_12m": (-0.9, 2.0)}
+CLIP = {"net_debt_to_ebitda": (-5, 10), "roic": (-0.5, 1.0), "revenue_cagr_3y": (-0.5, 1.0), "momentum_12m": (-0.9, 2.0),
+        "implied_gap": (-0.5, 0.8), "return_spread": (-0.5, 1.0)}
 
 _lock = threading.Lock()
 
@@ -98,7 +102,9 @@ def card(row: Dict[str, Any], profile: Optional[Dict[str, Any]]) -> str:
             f"對客戶{p.get('customer_power')} TAM {p.get('tam_bucket')}｜ROIC {pct(row.get('roic'))} 毛利率 {pct(row.get('gross_margin'))} "
             f"FCF率 {pct(row.get('fcf_margin'))} F分數 {row.get('piotroski')} 淨負債/EBITDA "
             f"{'n/a' if nd is None else format(nd, '.1f')} 3年營收CAGR {pct(row.get('revenue_cagr_3y'))} "
-            f"P/E {'n/a' if not pe else format(pe, '.0f')}")
+            f"P/E {'n/a' if not pe else format(pe, '.0f')}｜瓶頸 {p.get('bottleneck')} 營收品質 {row.get('revenue_quality')} "
+            f"市場預期 {row.get('priced_in')} 隱含成長 {pct(row.get('implied_growth'))} 資金成本檢驗 {row.get('rate_test')} "
+            f"擁擠度 {row.get('crowding')}")
 
 
 def record(entry: Dict[str, Any]) -> None:

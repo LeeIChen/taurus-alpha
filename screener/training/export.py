@@ -25,8 +25,8 @@ def label_examples() -> List[Dict[str, Any]]:
     ovr = profiles.overrides()
     fields = list(profiles.IndustryProfile.model_fields)
     for name, p in data.items():
-        if p.get("source") != "claude" or not p.get("prompt"):
-            continue  # only teacher labels (not the labeler's own output)
+        if p.get("source") != "claude" or not p.get("prompt") or "bottleneck" not in p:
+            continue  # only teacher labels (not the labeler's own output) with every current field
         label = {k: p.get(k) for k in fields}
         corrected = []
         for field, o in ovr.get(name, {}).items():

@@ -90,9 +90,16 @@ def _returns(monthly: Dict[str, float]) -> Dict[str, float]:
 
 def sensitivities(monthly: Dict[str, float], market: Dict[str, float], factors: Dict[str, Dict[str, float]]) -> Dict[str, Any]:
     """OLS of monthly returns on the market and on each macro factor (market held fixed).
-    Returns betas with t-statistics; None when there is under three years of data."""
+    Returns betas with t-statistics (left out with under three years of data), momentum and drawdown."""
     r, m = _returns(monthly), _returns(market)
     out: Dict[str, Any] = {}
+    # 12-month price momentum (skipping the latest month), a common screen input
+    keys = sorted(monthly)
+    if len(keys) >= 14:
+        out["momentum_12m"] = monthly[keys[-2]] / monthly[keys[-14]] - 1
+    # how far below its 12-month high (month-end closes, current month included) the stock trades now
+    if len(keys) >= 12:
+        out["drawdown_12m"] = monthly[keys[-1]] / max(monthly[k] for k in keys[-12:]) - 1
     months = [k for k in r if k in m]
     if len(months) < MIN_MONTHS:
         return out
@@ -115,8 +122,4 @@ def sensitivities(monthly: Dict[str, float], market: Dict[str, float], factors: 
         se = float(np.sqrt(max(cov[2, 2], 1e-12)))
         out[f"{name}_beta"] = float(coef[2])
         out[f"{name}_t"] = float(coef[2] / se)
-    # 12-month price momentum (skipping the latest month), a common screen input
-    keys = sorted(monthly)
-    if len(keys) >= 14:
-        out["momentum_12m"] = monthly[keys[-2]] / monthly[keys[-14]] - 1
     return out

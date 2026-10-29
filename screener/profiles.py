@@ -6,6 +6,7 @@ members, margins, growth, working-capital days) and returns, in Traditional Chin
 - bargaining power of a typical company over suppliers and over customers: 強 / 中 / 弱
 - addressable market (TAM) size and 5-year growth, and whether the industry is growth or value in nature
 - which macro indicators drive it
+- whether it holds a bottleneck in its value chain, and its place in the AI build-out
 
 Profiles are cached in data/screener/industry_profiles.json and reused; an investor's corrections
 (label_overrides.json) take precedence and become training data for the LoRA labeler
@@ -41,6 +42,7 @@ EST_USD_PER_TAM_CHECK = 0.15  # Sonnet with up to 3 searches and 1 fetch
 STRUCTURES = ["獨占", "寡占", "壟斷性競爭", "接近完全競爭"]
 POWER = ["強", "中", "弱"]
 TAM_BUCKETS = ["高成長", "中度成長", "低成長", "萎縮"]
+BOTTLENECKS = ["關鍵瓶頸", "部分瓶頸", "非瓶頸"]
 
 _lock = threading.Lock()
 
@@ -59,6 +61,12 @@ class IndustryProfile(BaseModel):
     nature_rationale: str
     macro_drivers: str = Field(description="Which macro indicators move this industry's revenue and why (rates, PMI/orders, housing, consumer, commodity prices...)")
     moat_sources: List[str] = Field(description="Typical sources of durable advantage, 0-4 short items")
+    bottleneck: Literal["關鍵瓶頸", "部分瓶頸", "非瓶頸"] = Field(
+        description="Does the industry control a scarce input its customers can't route around (capacity with "
+                    "multi-year lead times, permits, rights of way, grid connections, critical IP)?")
+    bottleneck_rationale: str = Field(description="What is scarce, who waits for it, how long the lead times are")
+    ai_role: str = Field(description="Its place in the AI build-out in a few words (compute chips, networking, "
+                                     "power generation, grid equipment, gas pipelines, cooling, software...) or 無直接關聯")
     confidence: Literal["高", "中", "低"]
 
 
@@ -77,7 +85,10 @@ Definitions:
   payable (DPO) days versus other industries, are evidence.
 - tam_cagr_5y_pct: your best estimate of nominal annual growth of the addressable market over the next 5 years.
   The member companies' historical revenue growth is given as a reference, not the answer.
-- nature: 成長 if most value comes from future expansion, 價值 if from current cash flows and assets."""
+- nature: 成長 if most value comes from future expansion, 價值 if from current cash flows and assets.
+- bottleneck: 關鍵瓶頸 = customers queue for its capacity and accept its prices (e.g. gas turbines, advanced
+  foundry, transformers); 部分瓶頸 = scarce in some segments or for a few years; 非瓶頸 = buyers can switch or
+  supply expands quickly. A commodity whose price can collapse (power in an oversupplied market) is not a bottleneck."""
 
 
 def _fmt_pct(v: Optional[float]) -> str:
@@ -185,7 +196,7 @@ def overrides() -> Dict[str, Dict[str, Any]]:
 def set_override(sub_industry: str, field: str, value: Any, note: str = "") -> None:
     """An investor's correction; it wins over the model's label from now on and is kept for training."""
     allowed = {"market_structure": STRUCTURES, "supplier_power": POWER, "customer_power": POWER,
-               "nature": ["成長", "均衡", "價值"], "tam_bucket": TAM_BUCKETS}
+               "nature": ["成長", "均衡", "價值"], "tam_bucket": TAM_BUCKETS, "bottleneck": BOTTLENECKS}
     if field not in allowed or value not in allowed[field]:
         raise ValueError(f"{field} must be one of {allowed.get(field)}")
     with _lock:

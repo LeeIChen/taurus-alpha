@@ -34,7 +34,9 @@ taurus-alpha/
 │   ├── macro.py               # Composite leading index and the current cycle and rate regime
 │   ├── features.py            # Dataset build: company labels and industry aggregates
 │   ├── profiles.py            # Claude (or the LoRA labeler) classifies each sub-industry
+│   ├── hedge.py               # Hedge-fund questions: reverse DCF, ROIC vs WACC, revenue quality, crowding
 │   ├── evidence.py            # 10-K deep dive on shortlisted companies (RAG, cited)
+│   ├── hedge_check.py         # Hedge-fund check: contracts, estimates, catalysts, short interest (RAG + web)
 │   ├── preferences.py         # Feedback store, Bradley-Terry preference model, reward-model blend
 │   ├── graph.py               # LangGraph wizard with interrupt() steps and a SQLite checkpointer
 │   ├── api.py                 # /screener page and /screen endpoints
@@ -118,6 +120,26 @@ FCF margin, Piotroski F-score, net debt/EBITDA, interest coverage and margin sta
 insurers use ROE, ROA, equity/assets, F-score and earnings stability instead), plus optional
 F-score, leverage and positive-FCF thresholds.
 
+### The hedge-fund questions (`screener/hedge.py`)
+
+After the quality bar, three steps ask what a fundamental long/short fund asks before buying a good
+business. All labels are computed from the dataset; each step lists the top companies with the numbers
+behind them.
+
+| Step | Label | How it is decided |
+|---|---|---|
+| Who holds the bottleneck? | 關鍵瓶頸 / 部分瓶頸 / 非瓶頸 (industry); 定價權 增強 / 持平 / 減弱 (company) | The model judges whether customers queue for the industry's capacity, equipment, permits or grid access, and notes its place in the AI build-out. Per company: gross margin vs its 5-year median, and backlog (RPO) growth vs revenue growth |
+| How good is the revenue? | 高 / 中 / 低 | Percentiles of backlog in years of revenue (`RevenueRemainingPerformanceObligation`, about 340 filers), revenue-growth volatility, down years and gross-margin stability; tertiles |
+| How much is priced in? | 預期偏低 / 大致反映 / 預期偏高 / 極度樂觀 | Reverse DCF: the 10-year cash-flow growth (then 2.5% forever) that today's EV implies, vs the mean 3- and 5-year revenue CAGR (gaps of −3, +3 and +10 points). Companies spending over 1.5× D&A use operating cash flow minus D&A, since reported FCF is net of the investment behind the growth; banks and insurers use the ROE implied by price-to-book |
+| Does it pay at today's rates? | 通過 / 勉強 / 不通過 | WACC from the current 10-year yield + Blume-adjusted beta × 5%, and interest paid / debt. Pass: ROIC (ROE for financials) ≥ WACC + 2 points, interest cover ≥ 4 and no debt-funded buybacks and dividends; fail: below WACC or cover < 2 |
+| Crowding | 高 / 中 / 低 | Percentiles of 12-month momentum, valuation premium to the sector (EV/EBITDA, P/E) and the reverse-DCF gap; tertiles. The drawdown from the 12-month high is shown too |
+| Catalysts | 基本面 加速 / 持平 / 放緩 | Latest-quarter revenue growth vs the 3-year CAGR (±3 points) |
+
+What the numbers can't show (contract share and length, spot-price exposure, estimate revisions, short
+interest, dated catalysts, what would prove the thesis wrong) comes from the **hedge-fund check** on the
+shortlist (`screener/hedge_check.py`): the 10-K's backlog, contract and customer pages (RAG) plus web
+search, about $0.25 per company (measured $0.15 with 5 searches; now 8), cached 7 days.
+
 ### How the techniques are used
 
 - **LangGraph:** `screener/graph.py` is a state machine whose steps pause with `interrupt()` and
@@ -140,7 +162,8 @@ F-score, leverage and positive-FCF thresholds.
 
 Only these steps call Claude (Sonnet 5.5): profiling the industries (once, about $0.013 each), the
 optional one-line goals at the start (about $0.01), a 10-K deep dive (about $0.08 per company,
-cached 30 days), a TAM web check (about $0.15) and the full report (about $3.60). The page asks
+cached 30 days), a hedge-fund check (about $0.25 per company, cached 7 days), a TAM web check (about
+$0.15) and the full report (about $3.60). The page asks
 before each paid step and shows the session's spend.
 
 # 📝 Report Generator

@@ -117,7 +117,8 @@ select { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border
 
 <script>
 const STEP_NAMES = {overview: "產業地圖", style: "成長/價值", size: "規模", cycle: "景氣/利率", structure: "競爭結構",
-  power: "議價力", tam: "TAM", quality: "基本面", shortlist: "候選名單"};
+  power: "議價力", tam: "TAM", quality: "基本面", edge: "瓶頸/營收品質", valuation: "反向DCF/利率", timing: "擁擠/催化劑",
+  shortlist: "候選名單"};
 let S = null;            // current payload
 let visited = new Set(["overview"]);
 let draft = {};          // field -> Set of selected values for the current step
@@ -159,6 +160,7 @@ function afterLoad() {
     levels[d.field] = d.level;
   }
   tableState = {sort: null, dir: -1, q: "", all: false};
+  ctable = {sort: null, dir: -1};
   render();
   window.scrollTo({top: 0});
 }
@@ -186,7 +188,7 @@ function regimeHTML(r) {
 
 // ---- industry table ----
 const IND_COLS = {
-  overview: ["sub_industry", "sector", "n", "nature", "cycle", "rate", "market_structure", "supplier_power", "customer_power", "tam_bucket"],
+  overview: ["sub_industry", "sector", "n", "nature", "cycle", "rate", "market_structure", "supplier_power", "customer_power", "tam_bucket", "bottleneck"],
   style: ["sub_industry", "candidates", "nature", "style", "median_revenue_cagr_3y", "nature_rationale"],
   size: ["sub_industry", "candidates", "n", "sector"],
   cycle: ["sub_industry", "candidates", "cycle", "rate", "median_market_beta", "median_rate_t", "macro_drivers"],
@@ -194,6 +196,9 @@ const IND_COLS = {
   power: ["sub_industry", "candidates", "supplier_power", "customer_power", "median_gross_margin", "median_dso", "median_dpo", "power_rationale"],
   tam: ["sub_industry", "candidates", "tam_bucket", "tam_cagr_5y_pct", "tam_usd_bn", "revenue_cagr_5y_aggregate", "tam_rationale"],
   quality: ["sub_industry", "candidates", "median_roic", "median_operating_margin", "median_gross_margin"],
+  edge: ["sub_industry", "candidates", "bottleneck", "ai_role", "median_rpo_coverage", "median_gross_margin", "bottleneck_rationale"],
+  valuation: ["sub_industry", "candidates", "median_implied_growth", "median_revenue_cagr_3y", "median_return_spread", "median_roic"],
+  timing: ["sub_industry", "candidates", "cycle", "rate", "median_market_beta", "macro_drivers"],
 };
 const COL = {
   sub_industry: ["產業（GICS 子產業）"], sector: ["類股"], n: ["成員", "num"], candidates: ["候選", "num"],
@@ -204,9 +209,12 @@ const COL = {
   median_roic: ["ROIC 中位", "num"], median_revenue_cagr_3y: ["3 年營收 CAGR", "num"], revenue_cagr_5y_aggregate: ["過去 5 年營收 CAGR", "num"],
   median_dso: ["DSO 天", "num"], median_dpo: ["DPO 天", "num"], median_market_beta: ["市場 Beta", "num"], median_rate_t: ["利率 t 值", "num"],
   nature_rationale: ["理由"], macro_drivers: ["主要總經驅動"], market_structure_rationale: ["理由"], power_rationale: ["理由"], tam_rationale: ["理由"],
+  bottleneck: ["瓶頸地位", "", "edit"], ai_role: ["AI 產業鏈位置"], bottleneck_rationale: ["理由"],
+  median_rpo_coverage: ["RPO/營收 中位", "num"], median_implied_growth: ["隱含成長中位", "num"], median_return_spread: ["ROIC−WACC 中位", "num"],
 };
 const OPTS = {market_structure: ["獨占", "寡占", "壟斷性競爭", "接近完全競爭"], supplier_power: ["強", "中", "弱"],
-              customer_power: ["強", "中", "弱"], tam_bucket: ["高成長", "中度成長", "低成長", "萎縮"]};
+              customer_power: ["強", "中", "弱"], tam_bucket: ["高成長", "中度成長", "低成長", "萎縮"],
+              bottleneck: ["關鍵瓶頸", "部分瓶頸", "非瓶頸"]};
 
 function cell(row, c) {
   const v = row[c];
@@ -216,7 +224,9 @@ function cell(row, c) {
     return `<select data-ovr="${esc(row.sub_industry)}" data-field="${c}" class="${ovr ? "tag ovr" : ""}" title="${ovr ? "你改過的標籤" : "不同意可直接改"}">
       ${OPTS[c].map(o => `<option ${o === v ? "selected" : ""}>${o}</option>`).join("")}</select>`;
   }
-  if (["median_gross_margin", "median_operating_margin", "median_roic", "median_revenue_cagr_3y", "revenue_cagr_5y_aggregate", "cr4"].includes(c)) return pct(v, 1);
+  if (["median_gross_margin", "median_operating_margin", "median_roic", "median_revenue_cagr_3y", "revenue_cagr_5y_aggregate", "cr4",
+       "median_implied_growth", "median_return_spread"].includes(c)) return pct(v, 1);
+  if (c === "median_rpo_coverage") return v == null ? "—" : num(v, 2) + " 年";
   if (c === "hhi") return v == null ? "—" : Math.round(v).toLocaleString();
   if (c === "tam_cagr_5y_pct") return v == null ? "—" : num(v, 1) + "%" + (row.tam_verified ? " ✓" : "");
   if (c === "tam_usd_bn") return v == null ? "—" : "$" + Math.round(v).toLocaleString() + "B";
@@ -275,6 +285,46 @@ function rerenderTable() { const box = $("#indtable"); box.innerHTML = industryT
 
 function currentSelect() { const o = {}; for (const [k, v] of Object.entries(draft)) o[k] = [...v]; return o; }
 
+// ---- company table (hedge-fund steps) ----
+const CCOL = {
+  ticker: ["代號"], name: ["公司"], sub_industry: ["產業"], quality_score: ["品質", "num", "pct0"],
+  pricing_trend: ["定價權趨勢"], gross_margin: ["毛利率", "num", "pct1"], gross_margin_5y_median: ["5 年毛利率中位", "num", "pct1"],
+  rpo_coverage: ["RPO/營收", "num", "yrs"], rpo_growth: ["RPO 年增", "num", "pct1"], revenue_growth_volatility: ["營收成長波動", "num", "pct1"],
+  revenue_down_years: ["衰退年數", "num", "int"], revenue_quality: ["營收品質"],
+  dcf_base: ["反推基礎"], implied_growth: ["隱含 10 年成長", "num", "pct1"], delivered_growth: ["過去營收成長", "num", "pct1"],
+  priced_in: ["市場預期"], wacc: ["WACC", "num", "pct1"], roic: ["ROIC", "num", "pct1"], return_spread: ["ROIC−WACC", "num", "pct1"],
+  interest_coverage: ["利息保障", "num", "x"], levered_payout: ["借錢回購/配息"], rate_test: ["資金成本檢驗"],
+  crowding: ["擁擠度"], momentum_12m: ["12 月動能", "num", "pct0"], drawdown_12m: ["離高點", "num", "pct0"],
+  valuation_premium_pct: ["估值溢價百分位", "num", "pct0"], implied_gap: ["預期落差", "num", "pct1"],
+  revenue_growth_latest_q: ["最新季營收年增", "num", "pct1"], revenue_cagr_3y: ["3 年營收 CAGR", "num", "pct1"], fund_momentum: ["基本面動能"],
+};
+function fmt(v, kind) {
+  if (v == null) return "—";
+  if (kind === "pct0") return pct(v, 0);
+  if (kind === "pct1") return pct(v, 1);
+  if (kind === "yrs") return num(v, 2) + " 年";
+  if (kind === "x") return num(v, 1) + "×";
+  if (kind === "int") return String(v);
+  if (v === true) return "是"; if (v === false) return "否";
+  return esc(v);
+}
+let ctable = {sort: null, dir: -1};
+function companyTable() {
+  const cols = ["ticker", "name", "sub_industry", "quality_score", ...S.company_cols];
+  const rows = (S.companies || []).slice();
+  if (ctable.sort) rows.sort((a, b) => { const x = a[ctable.sort], y = b[ctable.sort];
+    if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * ctable.dir; });
+  return `<div class="tablebox"><table><thead><tr>${cols.map(c => `<th class="${CCOL[c]?.[1] || ""}" data-csort="${c}">${CCOL[c]?.[0] || c}${ctable.sort === c ? (ctable.dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${cols.map(c => `<td class="${CCOL[c]?.[1] || ""}">${c === "ticker" ? `<b>${esc(r[c])}</b>` : fmt(r[c], CCOL[c]?.[2])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <p class="explain">列出目前條件下品質分數最高的 ${rows.length} 家（未套用這一步的選擇）。點欄位標題排序。</p>`;
+}
+function bindCompanyTable() {
+  document.querySelectorAll("th[data-csort]").forEach(th => th.onclick = () => {
+    ctable.dir = ctable.sort === th.dataset.csort ? -ctable.dir : -1; ctable.sort = th.dataset.csort;
+    $("#ctable").innerHTML = companyTable(); bindCompanyTable();
+  });
+}
+
 // ---- steps ----
 function renderOverview() {
   const miss = S.missing_profiles ? `<div class="banner warn">還有 ${S.missing_profiles} 個產業沒有市場結構、議價力與 TAM 的分類（需要 Claude，約 ${usd(S.missing_profiles * 0.015)}）。
@@ -285,7 +335,7 @@ function renderOverview() {
       <textarea id="goals" placeholder="例如：想找有定價權、不太怕景氣循環的中小型成長股；負債要低。">${esc(S.goals)}</textarea>
       <div class="nav"><span class="meta">寫了會先用 Claude（約 $0.01）幫你預選各步驟；不寫就從頭自己選。</span>
       <button class="btn primary" id="next">開始篩選 →</button></div></div>
-    <div class="panel"><h2>產業地圖</h2><p class="explain">每個 GICS 子產業在六個面向上的分類。點欄位標題排序。</p><div id="indtable">${industryTable("overview")}</div></div>`;
+    <div class="panel"><h2>產業地圖</h2><p class="explain">每個 GICS 子產業在七個面向上的分類（含價值鏈瓶頸）。點欄位標題排序。基本面門檻之後，還有避險基金會問的三關：誰掌握瓶頸與營收品質、股價反映了多少與利率檢驗、擁擠度與催化劑。</p><div id="indtable">${industryTable("overview")}</div></div>`;
 }
 
 function renderFilter() {
@@ -298,9 +348,10 @@ function renderFilter() {
   const keep = keepCount();
   return `<div class="panel"><h2>${esc(S.title)}</h2><p class="q">${esc(S.question)}</p><p class="explain">${esc(S.explain)}</p>
       ${S.suggestion_note ? `<div class="hint">建議（橘框）：${esc(S.suggestion_note)}</div>` : ""}
-      ${S.step === "cycle" ? regimeHTML(S.regime) : ""}
+      ${S.step === "cycle" || S.step === "valuation" ? regimeHTML(S.regime) : ""}
       ${dims}
       <div class="nav"><button class="btn" id="back">← 上一步</button><span class="meta">${keep}</span><button class="btn primary" id="next">下一步 →</button></div></div>
+    ${S.companies ? `<div class="panel"><h2>這一步的公司視角</h2><div id="ctable">${companyTable()}</div></div>` : ""}
     <div class="panel"><h2>這一步的產業視角</h2><div id="indtable">${industryTable(S.step)}</div></div>`;
 }
 
@@ -308,6 +359,7 @@ function keepCount() {
   // Counts per option are for one dimension at a time; with two dimensions the server applies both.
   const chosen = S.dimensions.filter(d => draft[d.field].size);
   if (!chosen.length) return `目前 ${S.remaining} 家，不篩選`;
+  if (chosen.length > 1) return `${chosen.length} 個條件都會套用（下一步會看到剩下的家數）`;
   if (chosen.length === 1) {
     const d = chosen[0];
     const n = d.options.filter(o => draft[d.field].has(o.value)).reduce((a, o) => a + o.companies, 0);
@@ -348,6 +400,19 @@ function companyCard(c, i) {
       ${dd.market_position ? `市場地位：${esc(dd.market_position)}<br>` : ""}
       ${dd.red_flags?.length ? `<span style="color:var(--bad)">注意：${dd.red_flags.map(esc).join("；")}</span>` : ""}
       <ul>${(dd.evidence || []).map(e => `<li>${esc(e.claim)} <a href="${esc(e.url)}" target="_blank" rel="noopener">[${esc(e.page_id)}]</a></li>`).join("")}</ul></div>`;
+  const hc = c.hedge_check;
+  const hcHTML = !hc ? "" : hc.error ? `<div class="dd err">避險基金查核失敗：${esc(hc.error)}</div>` :
+    `<div class="dd"><b>避險基金查核（${esc((hc.at || "").slice(0, 10))}）</b><br>
+      瓶頸 <b>${esc(hc.bottleneck)}</b> — ${esc(hc.bottleneck_rationale)}<br>
+      營收品質：合約占比 <b>${hc.contracted_revenue_pct == null ? "不明" : num(hc.contracted_revenue_pct, 0) + "%"}</b>、
+        合約年限 <b>${hc.contract_years == null ? "不明" : num(hc.contract_years, 1) + " 年"}</b>、市價曝險 <b>${esc(hc.spot_exposure)}</b> — ${esc(hc.revenue_quality_rationale)}<br>
+      分析師預估 <b>${esc(hc.estimate_trend)}</b> — ${esc(hc.estimate_rationale)}<br>
+      擁擠度：放空比率 <b>${hc.short_interest_pct == null ? "不明" : num(hc.short_interest_pct, 1) + "%"}</b> — ${esc(hc.crowding_notes)}<br>
+      <b>催化劑</b><ul>${(hc.catalysts || []).map(k => `<li>${esc(k.when)}：${esc(k.event)}（${esc(k.impact)}）</li>`).join("")}</ul>
+      <b>什麼情況代表看錯</b><ul>${(hc.kill_criteria || []).map(k => `<li>${esc(k)}</li>`).join("")}</ul>
+      <b>結論：</b>${esc(hc.verdict)}
+      ${hc.sources?.length ? `<details><summary>來源（${hc.sources.length}）</summary><ul>${hc.sources.map(x => `<li>[S${x.n}] <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title || x.url)}</a></li>`).join("")}</ul></details>` : ""}
+      <details><summary>完整筆記</summary><div class="report">${esc(hc.notes)}</div></details></div>`;
   return `<div class="card"><div class="card-head"><span class="rank">${i + 1}</span><span class="t">${esc(c.ticker)}</span><span>${esc(c.name)}</span>
       <span class="sub">${esc(c.sub_industry)} · ${esc(c.index)}</span><span class="score" title="排序分數：基本面品質 + 你的偏好">${(c.score * 100).toFixed(0)}</span></div>
     <div class="tags">${[c.size, c.style, c.cycle && "景氣" + c.cycle, c.rate, p.market_structure, p.supplier_power && "對供應商" + p.supplier_power,
@@ -360,12 +425,21 @@ function companyCard(c, i) {
       <div><span>P/E</span> <b>${num(c.pe, 0)}</b></div><div><span>EV/EBITDA</span> <b>${num(c.ev_ebitda)}</b></div>
       <div><span>FCF 殖利率</span> <b>${pct(c.fcf_yield, 1)}</b></div><div><span>市場 Beta</span> <b>${num(c.market_beta, 2)}</b></div>
     </div>
+    <div class="tags" title="避險基金五問（量化）">${[
+      p.bottleneck && "瓶頸：" + p.bottleneck, c.pricing_trend && "定價權" + c.pricing_trend, c.revenue_quality && "營收品質" + c.revenue_quality,
+      c.priced_in && "市場" + c.priced_in, c.rate_test && "資金成本" + c.rate_test, c.crowding && "擁擠度" + c.crowding,
+      c.fund_momentum && "基本面" + c.fund_momentum].filter(Boolean).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+    <div class="metrics">
+      <div><span>隱含 10 年成長</span> <b>${pct(c.implied_growth ?? c.implied_roe, 1)}</b></div><div><span>過去營收成長</span> <b>${pct(c.delivered_growth, 1)}</b></div>
+      <div><span>WACC</span> <b>${pct(c.wacc, 1)}</b></div><div><span>ROIC−WACC</span> <b>${pct(c.return_spread, 1)}</b></div>
+      <div><span>RPO/營收</span> <b>${c.rpo_coverage == null ? "—" : num(c.rpo_coverage, 2) + " 年"}</b></div><div><span>離 12 月高點</span> <b>${pct(c.drawdown_12m)}</b></div>
+    </div>
     <div class="card-actions">
       <button class="btn small vote up ${c.rating === 1 ? "on" : ""}" data-rate="1" data-t="${c.ticker}">👍 想要</button>
       <button class="btn small vote down ${c.rating === -1 ? "on" : ""}" data-rate="-1" data-t="${c.ticker}">👎 不要</button>
-      <label class="meta"><input type="checkbox" data-pick="${c.ticker}" ${picked.has(c.ticker) ? "checked" : ""}> 選來做 10-K 驗證</label>
+      <label class="meta"><input type="checkbox" data-pick="${c.ticker}" ${picked.has(c.ticker) ? "checked" : ""}> 勾選（10-K 驗證或避險基金查核）</label>
       <button class="btn small" data-report="${c.ticker}">產生完整研究報告</button>
-    </div>${ddHTML}</div>`;
+    </div>${ddHTML}${hcHTML}</div>`;
 }
 
 function renderShortlist() {
@@ -379,7 +453,7 @@ function renderShortlist() {
       <p class="explain">已累積 ${info.pairs || 0} 組偏好比較；偏好學習在排序中的權重 ${pct(info.learned_weight)}${info.reward_model ? "，並加入 LoRA 獎勵模型分數" : ""}。</p>${prefs}
       ${pairs ? `<div class="pairs" style="margin-top:10px">${pairs}</div>` : ""}
       <div class="nav"><button class="btn" id="back">← 調整門檻</button>
-        <span><button class="btn" id="dive">用 10-K 驗證勾選的公司</button> <button class="btn" id="finish">完成</button></span></div></div>
+        <span><button class="btn" id="dive">用 10-K 驗證勾選的公司</button> <button class="btn" id="hedge">避險基金查核勾選的公司</button> <button class="btn" id="finish">完成</button></span></div></div>
     <div class="cards">${S.companies.map(companyCard).join("") || `<div class="panel">沒有公司通過所有條件。回上一步放寬門檻。</div>`}</div>
     <div class="panel" id="jobs" hidden></div>`;
 }
@@ -399,6 +473,7 @@ function render() {
     $("#next").onclick = () => send({action: "next", quality: qualityAnswer()}, "排序中…");
   } else if (S.step === "shortlist") bindShortlist();
   else {
+    if (S.companies) bindCompanyTable();
     document.querySelectorAll(".chip[data-f]").forEach(ch => ch.onclick = () => {
       const s = draft[ch.dataset.f]; s.has(ch.dataset.v) ? s.delete(ch.dataset.v) : s.add(ch.dataset.v); render();
     });
@@ -419,6 +494,13 @@ function bindShortlist() {
     const est = (S.deep_dive_estimate_usd * t.length).toFixed(2);
     if (!confirm(`下載 ${t.join(", ")} 的最新 10-K，用 Claude 逐家驗證護城河與議價力，約 $${est}（已驗證過 30 天內的不再收費）。要繼續嗎？`)) return;
     send({action: "deep_dive", tickers: t, confirm: true}, "下載 10-K 並驗證中（每家約 20–40 秒）…").then(() => picked.clear());
+  };
+  $("#hedge").onclick = () => {
+    const t = [...picked].slice(0, 8);
+    if (!t.length) return alert("先勾選要查核的公司（最多 8 家）。");
+    const est = (S.hedge_check_estimate_usd * t.length).toFixed(2);
+    if (!confirm(`為 ${t.join(", ")} 做避險基金查核：讀 10-K 的合約與未履約訂單，再上網查分析師預估、放空比率與未來催化劑。約 $${est}（估計值；7 天內查過的不再收費）。要繼續嗎？`)) return;
+    send({action: "hedge_check", tickers: t, confirm: true}, "查核中（每家約 1–2 分鐘）…").then(() => picked.clear());
   };
   $("#finish").onclick = () => send({action: "finish"});
   document.querySelectorAll("[data-report]").forEach(b => b.onclick = () => startReport(b.dataset.report));

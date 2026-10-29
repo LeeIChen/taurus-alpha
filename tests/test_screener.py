@@ -13,14 +13,14 @@ from fastapi.testclient import TestClient
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.types import Command
 
-from screener import evidence, features, fundamentals, graph, preferences, profiles
+from screener import evidence, features, fundamentals, graph, hedge, hedge_check, preferences, profiles
 from screener.universe import parse_constituents
 
 SUBS = {"Semiconductors": "Information Technology", "Regional Banks": "Financials", "Restaurants": "Consumer Discretionary"}
 PROFILES = {
-    "Semiconductors": {"market_structure": "寡占", "supplier_power": "中", "customer_power": "強", "tam_cagr_5y_pct": 12.0, "nature": "成長"},
-    "Regional Banks": {"market_structure": "接近完全競爭", "supplier_power": "中", "customer_power": "弱", "tam_cagr_5y_pct": 3.0, "nature": "價值"},
-    "Restaurants": {"market_structure": "壟斷性競爭", "supplier_power": "中", "customer_power": "中", "tam_cagr_5y_pct": 5.0, "nature": "均衡"},
+    "Semiconductors": {"market_structure": "寡占", "supplier_power": "中", "customer_power": "強", "tam_cagr_5y_pct": 12.0, "nature": "成長", "bottleneck": "關鍵瓶頸"},
+    "Regional Banks": {"market_structure": "接近完全競爭", "supplier_power": "中", "customer_power": "弱", "tam_cagr_5y_pct": 3.0, "nature": "價值", "bottleneck": "非瓶頸"},
+    "Restaurants": {"market_structure": "壟斷性競爭", "supplier_power": "中", "customer_power": "中", "tam_cagr_5y_pct": 5.0, "nature": "均衡", "bottleneck": "非瓶頸"},
 }
 
 
@@ -51,6 +51,7 @@ def dataset(tmp_path, monkeypatch):
     for r in rows:
         features.add_valuation(r)
     features.label_companies(rows)
+    hedge.add_metrics(rows, rf=0.05)
     data = {"built_at": "2026-10-28T00:00:00+00:00", "companies": rows, "industries": features.industry_table(rows),
             "regime": {"as_of": "2026-09", "phase": "擴張", "phase_hint": "x", "leading_index": 0.2, "leading_index_3m_ago": 0.1,
                        "ten_year": 5.0, "ten_year_6m_ago": 4.3, "rates": "上升", "rate_hint": "y", "fed_funds": 3.75,
@@ -61,6 +62,7 @@ def dataset(tmp_path, monkeypatch):
     monkeypatch.setattr(profiles, "OVERRIDES_PATH", tmp_path / "overrides.json")
     monkeypatch.setattr(preferences, "FEEDBACK_PATH", tmp_path / "feedback.jsonl")
     monkeypatch.setattr(evidence, "DEEP_DIR", tmp_path / "deep")
+    monkeypatch.setattr(hedge_check, "CHECK_DIR", tmp_path / "hedge")
     (tmp_path / "profiles.json").write_text(json.dumps(
         {k: {**v, "source": "claude", "prompt": f"Sub-industry: {k}"} for k, v in PROFILES.items()}, ensure_ascii=False))
     features._cache.clear()
@@ -142,6 +144,37 @@ def test_bradley_terry_learns_the_investors_direction():
     assert preferences.explain(w)[0]["feature"] == "ROIC"
 
 
+def test_reverse_dcf_recovers_the_growth_it_was_priced_with():
+    ev = hedge.dcf_value(100.0, 0.08, 0.09)
+    assert hedge.implied_growth(ev, 100.0, 0.09) == pytest.approx(0.08, abs=1e-6)
+    assert hedge.implied_growth(ev, -5.0, 0.09) is None
+    row = {"sector": "Industrials", "ev": ev, "fcf": 100.0, "market_cap": ev, "market_beta": 1.0,
+           "revenue_cagr_3y": 0.02, "revenue_cagr_5y": 0.04}
+    out = hedge.reverse_dcf(row, rf=0.04)
+    assert out["wacc"] == pytest.approx(0.09)  # 4% + 1.0 x 5%, no debt
+    assert out["implied_growth"] == pytest.approx(0.08, abs=1e-6) and out["priced_in"] == "預期偏高"  # 8% vs 3% delivered
+
+
+def test_growth_capex_uses_maintenance_cash_flow_and_banks_use_book():
+    builder = {"fcf": 10.0, "cfo": 100.0, "capex": 90.0, "dna": 40.0}
+    assert hedge.base_cash_flow(builder) == (60.0, "維持性現金流")
+    assert hedge.base_cash_flow({"fcf": 10.0, "cfo": 50.0, "capex": 40.0, "dna": 35.0}) == (10.0, "自由現金流")
+    bank = {"sector": "Financials", "pb": 2.0, "roe": 0.12, "market_beta": 1.0, "market_cap": 1e10}
+    out = hedge.reverse_dcf(bank, rf=0.05)
+    assert out["implied_roe"] == pytest.approx(0.03 + 2.0 * (0.10 - 0.03))  # 17% implied vs 12% earned
+    assert out["priced_in"] == "預期偏高"
+
+
+def test_rate_test_needs_returns_above_the_cost_of_capital():
+    coc = {"wacc": 0.09, "cost_of_equity": 0.10}
+    ok = {"sector": "Industrials", "roic": 0.15, "interest_coverage": 10, "net_debt_to_ebitda": 1, "fcf": 5, "buybacks": 1}
+    assert hedge.rate_test(ok, 0.05, coc)["rate_test"] == "通過"
+    levered = {**ok, "net_debt_to_ebitda": 4, "buybacks": 10, "fcf": 5}
+    assert hedge.rate_test(levered, 0.05, coc)["levered_payout"] and hedge.rate_test(levered, 0.05, coc)["rate_test"] == "勉強"
+    assert hedge.rate_test({**ok, "roic": 0.07}, 0.05, coc)["rate_test"] == "不通過"
+    assert hedge.rate_test({**ok, "interest_coverage": 1.5}, 0.05, coc)["rate_test"] == "不通過"
+
+
 def test_industry_table_concentration():
     rows = [{"ticker": t, "name": t, "sector": "S", "sub_industry": "X", "revenue": r} for t, r in (("A", 60), ("B", 30), ("C", 10))]
     ind = features.industry_table(rows)["X"]
@@ -156,9 +189,11 @@ def _payload(g, cfg):
 
 
 def test_wizard_flow_filters_back_feedback_and_deep_dive(dataset, monkeypatch):
-    calls = []
+    calls, checks = [], []
     monkeypatch.setattr(evidence, "deep_dive", lambda row, prof, refresh=False: calls.append(row["ticker"]) or
                         {"ticker": row["ticker"], "moat": "窄", "evidence": []})
+    monkeypatch.setattr(hedge_check, "check", lambda row, prof, regime, refresh=False: checks.append(row["ticker"]) or
+                        {"ticker": row["ticker"], "estimate_trend": "下修", "catalysts": []})
     g = graph.build_graph(InMemorySaver())
     cfg = {"configurable": {"thread_id": "t1"}}
     g.invoke({"choices": {}, "cost_usd": 0.0}, cfg)
@@ -198,6 +233,19 @@ def test_wizard_flow_filters_back_feedback_and_deep_dive(dataset, monkeypatch):
     g.invoke(Command(resume={"action": "next", "quality": {"min_quality": 0.0, "min_piotroski": 0,
                                                            "max_net_debt_to_ebitda": None, "positive_fcf": False}}), cfg)
     p = _payload(g, cfg)
+    assert p["step"] == "edge" and p["remaining"] == 8 and len(p["companies"]) == 8 and "rpo_coverage" in p["company_cols"]
+    g.invoke(Command(resume={"action": "next"}), cfg)
+    p = _payload(g, cfg)
+    assert p["step"] == "valuation" and "regime" in p
+    opts = {o["value"]: o["companies"] for o in p["dimensions"][1]["options"]}  # rate_test
+    keep = [k for k in ("通過", "勉強") if opts.get(k)]
+    g.invoke(Command(resume={"action": "next", "select": {"rate_test": keep}}), cfg)
+    p = _payload(g, cfg)
+    assert p["step"] == "timing" and p["remaining"] == sum(opts[k] for k in keep)
+    g.invoke(Command(resume={"action": "back"}), cfg)
+    g.invoke(Command(resume={"action": "next"}), cfg)  # drop the rate filter again
+    g.invoke(Command(resume={"action": "next"}), cfg)  # timing -> shortlist
+    p = _payload(g, cfg)
     assert p["step"] == "shortlist" and len(p["companies"]) == 8
     a, b = p["companies"][-1]["ticker"], p["companies"][0]["ticker"]
     g.invoke(Command(resume={"action": "compare", "chosen": a, "rejected": b}), cfg)
@@ -210,6 +258,9 @@ def test_wizard_flow_filters_back_feedback_and_deep_dive(dataset, monkeypatch):
     g.invoke(Command(resume={"action": "deep_dive", "tickers": [a, "NOT-A-CANDIDATE"]}), cfg)
     p = _payload(g, cfg)
     assert calls == [a] and next(c for c in p["companies"] if c["ticker"] == a)["deep_dive"]["moat"] == "窄"
+    g.invoke(Command(resume={"action": "hedge_check", "tickers": [b]}), cfg)
+    p = _payload(g, cfg)
+    assert checks == [b] and next(c for c in p["companies"] if c["ticker"] == b)["hedge_check"]["estimate_trend"] == "下修"
     g.invoke(Command(resume={"action": "finish"}), cfg)
     assert g.get_state(cfg).values["finished"] and not g.get_state(cfg).next
 
@@ -227,6 +278,7 @@ def test_api_requires_confirmation_for_paid_steps(dataset, monkeypatch):
     assert c.post(f"/screen/{sid}/answer", json={"action": "next"}).json()["step"] == "style"
     assert c.get(f"/screen/{sid}").json()["step"] == "style"
     assert c.post(f"/screen/{sid}/answer", json={"action": "deep_dive", "tickers": ["T01"]}).status_code == 402
+    assert c.post(f"/screen/{sid}/answer", json={"action": "hedge_check", "tickers": ["T01"]}).status_code == 402
     assert "estimate_usd" in c.post(f"/screen/{sid}/report", json={"ticker": "T01"}).json()
     assert c.get("/screen/nope").status_code == 404
     assert c.get("/screener").status_code == 200

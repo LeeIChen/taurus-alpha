@@ -47,7 +47,8 @@ FLOW_TAGS: Dict[str, List[str]] = {
     "cfo": ["NetCashProvidedByUsedInOperatingActivities"],
     "capex": ["PaymentsToAcquirePropertyPlantAndEquipment", "PaymentsToAcquireProductiveAssets"],
     "rnd": ["ResearchAndDevelopmentExpense"],
-    "interest_expense": ["InterestExpense", "InterestExpenseNonoperating"],
+    "interest_expense": ["InterestExpense", "InterestExpenseNonoperating", "InterestExpenseDebt", "InterestAndDebtExpense",
+                         "InterestPaidNet"],  # last resort: cash interest paid
     "dna": ["DepreciationDepletionAndAmortization", "DepreciationAndAmortization", "DepreciationAmortizationAndAccretionNet"],
     "dividends": ["PaymentsOfDividendsCommonStock", "PaymentsOfDividends"],
     "buybacks": ["PaymentsForRepurchaseOfCommonStock"],
@@ -62,12 +63,16 @@ INSTANT_TAGS: Dict[str, List[str]] = {
     "current_assets": ["AssetsCurrent"],
     "current_liabilities": ["LiabilitiesCurrent"],
     "equity": ["StockholdersEquity", "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
-    "long_term_debt": ["LongTermDebtNoncurrent", "LongTermDebt"],
+    "long_term_debt": ["LongTermDebtNoncurrent", "LongTermDebt", "LongTermNotesAndLoans", "LongTermNotesPayable",
+                       "LongTermDebtAndCapitalLeaseObligations"],
     "debt_current": ["LongTermDebtCurrent", "DebtCurrent"],
     "cash": ["CashAndCashEquivalentsAtCarryingValue", "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents"],
     "receivables": ["AccountsReceivableNetCurrent"],
     "inventory": ["InventoryNet"],
     "payables": ["AccountsPayableCurrent"],
+    # contracted revenue not yet recognized (backlog) and cash collected ahead of delivery: revenue quality
+    "rpo": ["RevenueRemainingPerformanceObligation"],
+    "deferred_revenue": ["ContractWithCustomerLiabilityCurrent", "DeferredRevenueCurrent"],
 }
 LATEST_INSTANT_TAGS = ["equity", "long_term_debt", "debt_current", "cash"]  # for market cap -> EV
 QUARTER_FLOWS = ["revenue", "net_income"]  # latest-quarter growth and trailing twelve months
@@ -257,6 +262,7 @@ def derive(raw: Dict[str, Any], driver_growth: Dict[int, float]) -> Dict[str, An
     })
     fcf = cur["cfo"] - (cur.get("capex") or 0) if cur.get("cfo") is not None else None
     m["fcf"] = fcf
+    m["cfo"], m["capex"], m["dna"] = cur.get("cfo"), cur.get("capex"), cur.get("dna")
     m["fcf_margin"] = _div(fcf, rev)
     ebitda = ebit + cur["dna"] if ebit is not None and cur.get("dna") is not None else None
     m["ebitda"] = ebitda
@@ -265,6 +271,8 @@ def derive(raw: Dict[str, Any], driver_growth: Dict[int, float]) -> Dict[str, An
     m["net_debt"] = net_debt
     m["net_debt_to_ebitda"] = _div(net_debt, ebitda) if ebitda and ebitda > 0 else None
     m["interest_coverage"] = _div(ebit, cur.get("interest_expense")) if cur.get("interest_expense") else None
+    m["interest_expense"] = cur.get("interest_expense")
+    m["debt"] = debt
     invested = (cur.get("equity") or 0) + debt - (cur.get("cash") or 0)
     m["roic"] = _div(ebit * (1 - TAX_RATE), invested) if ebit is not None and invested > 0 and cur.get("equity") is not None else None
     m["roe"] = _div(cur.get("net_income"), cur.get("equity")) if (cur.get("equity") or 0) > 0 else None
@@ -307,6 +315,15 @@ def derive(raw: Dict[str, Any], driver_growth: Dict[int, float]) -> Dict[str, An
     gms = [g for g in gms if g is not None and -1 < g < 1]
     m["gross_margin_stability"] = pstdev(gms) if len(gms) >= 3 else None
     m["gross_margin_5y_median"] = median(gms) if gms else None
+    # revenue quality: backlog coverage and growth, how steady revenue has been
+    m["rpo"] = cur.get("rpo")
+    m["rpo_coverage"] = _div(cur.get("rpo"), rev) if rev and rev > 0 else None
+    m["rpo_growth"] = _div(cur.get("rpo"), prev.get("rpo")) - 1 if cur.get("rpo") and (prev.get("rpo") or 0) > 0 else None
+    m["deferred_revenue_ratio"] = _div(cur.get("deferred_revenue"), rev) if rev and rev > 0 else None
+    revs = [annual[y].get("revenue") for y in years[-6:]]
+    growths = [b / a - 1 for a, b in zip(revs, revs[1:]) if a and b and a > 0]
+    m["revenue_growth_volatility"] = pstdev(growths) if len(growths) >= 3 else None
+    m["revenue_down_years"] = sum(g < 0 for g in growths) if len(growths) >= 3 else None
     # cyclicality: revenue growth vs industrial production growth
     m["revenue_elasticity"] = elasticity({y: annual[y]["revenue"] for y in years if annual[y].get("revenue")}, driver_growth)
     # for market cap and EV

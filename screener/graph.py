@@ -6,9 +6,11 @@ answer. Answers can go back a step, so every step recomputes its candidates from
 Sessions are checkpointed in SQLite (data/screener/sessions.sqlite) and survive a server restart.
 
 overview -> [interpret_goals] -> style -> size -> cycle -> structure -> power -> tam -> quality
-         -> shortlist <-> deep_dive   (shortlist also takes ratings and A/B choices for preferences.py)
+         -> edge -> valuation -> timing -> shortlist <-> deep_dive / hedge_check
+(edge, valuation and timing are the hedge-fund questions in hedge.py; shortlist also takes ratings and
+A/B choices for preferences.py)
 
-Only interpret_goals and deep_dive call Claude; every other step is computed from the dataset.
+Only interpret_goals, deep_dive and hedge_check call Claude; every other step is computed from the dataset.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from langgraph.types import Command, interrupt
 from pydantic import BaseModel, Field
 
 from core.llm import WRITER_MODEL, ask_json, meter_rows
-from screener import evidence, preferences, profiles
+from screener import evidence, hedge, hedge_check, preferences, profiles
 from screener.features import CYCLE_LABELS, RATE_LABELS, SIZE_LABELS, STYLE_LABELS, load_dataset
 from screener.universe import DATA_DIR
 
@@ -82,9 +84,52 @@ STEPS: Dict[str, Dict[str, Any]] = {
                    "對照。可對單一產業用網路搜尋查證（約 0.15 美元）。",
         "filters": [("tam_bucket", "TAM 成長", "industry", profiles.TAM_BUCKETS)],
     },
+    # ---- the hedge-fund questions (screener/hedge.py), asked after the quality bar ----
+    "edge": {
+        "title": "誰掌握瓶頸？營收品質如何？",
+        "question": "AI 這類浪潮裡，稀缺的環節才有定價權。要求公司處在瓶頸位置、營收有合約保障嗎？",
+        "explain": "產業瓶頸地位由模型判斷（客戶是否要排隊等它的產能、設備、許可或併網資格）。定價權趨勢 = 毛利率是否高於自己"
+                   "過去 5 年中位數，以及未履約合約（RPO，即已簽約未認列的營收）是否成長得比營收快。營收品質 = RPO 可涵蓋幾年營收、"
+                   "過去 5 年營收成長的波動、衰退年數、毛利率穩定度，全市場百分位後分三等分。約 340 家公司有申報 RPO；隨市場電價"
+                   "或商品價格浮動的營收（例如德州發電商）多半沒有 RPO，營收品質會偏低。",
+        "filters": [("bottleneck", "產業瓶頸地位", "industry", profiles.BOTTLENECKS),
+                    ("pricing_trend", "定價權趨勢", "company", hedge.PRICING_LABELS),
+                    ("revenue_quality", "營收品質", "company", hedge.QUALITY_LABELS)],
+        "company_cols": ["pricing_trend", "gross_margin", "gross_margin_5y_median", "rpo_coverage", "rpo_growth",
+                         "revenue_growth_volatility", "revenue_down_years", "revenue_quality"],
+    },
+    "valuation": {
+        "title": "股價裡已經反映了多少？在現在的利率下還划算嗎？",
+        "question": "用反向 DCF 看市場已經預期多少成長，再用目前的十年期殖利率檢驗資金成本。",
+        "explain": "反向 DCF：找出讓「未來 10 年現金流折現 + 之後每年 2.5% 永續成長」剛好等於目前企業價值（市值 + 負債 − 現金）"
+                   "的 10 年年成長率，再和公司過去 3、5 年營收 CAGR 的平均比較：低 3 個百分點以上 = 預期偏低；±3 = 大致反映；"
+                   "高 3–10 = 預期偏高；高 10 以上 = 極度樂觀。資本支出超過折舊 1.5 倍的公司（管線、電廠、資料中心）改用「營業現金流 − "
+                   "折舊」為基礎，因為報表上的自由現金流已扣掉了帶來成長的投資。銀行與保險改用股價淨值比反推隱含 ROE。"
+                   "折現率 WACC = 十年期殖利率 + 調整後 Beta × 5% 風險溢酬（股權），債務成本由利息支出 / 負債估計。"
+                   "資金成本檢驗：ROIC（金融業用 ROE）比 WACC 高 2 個百分點以上、利息保障倍數 ≥ 4、沒有借錢回購配息 = 通過；"
+                   "低於 WACC 或利息保障倍數 < 2 = 不通過。",
+        "filters": [("priced_in", "市場隱含預期", "company", hedge.PRICED_IN_LABELS),
+                    ("rate_test", "資金成本檢驗", "company", hedge.RATE_TEST_LABELS)],
+        "company_cols": ["dcf_base", "implied_growth", "delivered_growth", "priced_in", "wacc", "roic", "return_spread",
+                         "interest_coverage", "levered_payout", "rate_test"],
+    },
+    "timing": {
+        "title": "催化劑與擁擠度",
+        "question": "熱門股遇到壞消息跌最兇。要避開擁擠的交易、找基本面正在加速的公司嗎？",
+        "explain": "擁擠度 = 12 個月股價動能、相對同類股的估值溢價（EV/EBITDA、P/E）、反向 DCF 的隱含預期落差，三者百分位"
+                   "平均後分三等分（缺放空比率與持股集中度，這兩項要用「避險基金查核」上網查）。基本面動能 = 最新一季營收年增率"
+                   "比 3 年 CAGR 快或慢 3 個百分點以上。另列離 12 個月高點的跌幅。財報日、合約、監管等具體催化劑與分析師預估的"
+                   "上修／下修，請在候選名單用「避險基金查核」逐家查。",
+        "filters": [("crowding", "擁擠度", "company", hedge.CROWDING_LABELS),
+                    ("fund_momentum", "基本面動能", "company", hedge.MOMENTUM_LABELS)],
+        "company_cols": ["crowding", "momentum_12m", "drawdown_12m", "valuation_premium_pct", "implied_gap",
+                         "revenue_growth_latest_q", "revenue_cagr_3y", "fund_momentum"],
+    },
 }
 FILTER_STEPS = list(STEPS)
-ORDER = ["overview", *FILTER_STEPS, "quality", "shortlist"]
+ORDER = ["overview", "style", "size", "cycle", "structure", "power", "tam", "quality", "edge", "valuation", "timing",
+         "shortlist"]
+COMPANY_PREVIEW = 60
 
 QUALITY_DEFAULTS = {"min_quality": 0.6, "min_piotroski": 5, "max_net_debt_to_ebitda": 3.0, "positive_fcf": True}
 
@@ -96,6 +141,8 @@ class ScreenState(TypedDict, total=False):
     quality: Dict[str, Any]
     deep_dives: Dict[str, Dict[str, Any]]
     pending_deep_dive: List[str]
+    hedge_checks: Dict[str, Dict[str, Any]]
+    pending_hedge_check: List[str]
     cost_usd: float
     finished: bool
 
@@ -115,13 +162,18 @@ def _value(row: Dict[str, Any], field: str, level: str, profs: Dict[str, Dict[st
 
 
 def candidates(state: ScreenState, upto: str) -> List[Dict[str, Any]]:
-    """Companies that pass every filter step before `upto` (all of them if `upto` is "quality" or later)."""
+    """Companies that pass every step before `upto` in ORDER (filters and the quality bar)."""
     data = load_dataset()
     profs = profiles.merged_profiles()
     rows = data["companies"]
     choices = state.get("choices") or {}
-    steps = FILTER_STEPS if upto not in FILTER_STEPS else FILTER_STEPS[: FILTER_STEPS.index(upto)]
-    for step in steps:
+    for step in ORDER[1: ORDER.index(upto)] if upto in ORDER else ORDER[1:]:
+        if step == "quality":
+            q = {**QUALITY_DEFAULTS, **(state.get("quality") or {})}
+            rows = [r for r in rows if passes_quality(r, q)]
+            continue
+        if step not in STEPS:
+            continue
         c = choices.get(step) or {}
         for field, _, default_level, _ in STEPS[step]["filters"]:
             wanted = (c.get("select") or {}).get(field) or []
@@ -149,17 +201,24 @@ def passes_quality(r: Dict[str, Any], q: Dict[str, Any]) -> bool:
 
 INDUSTRY_FIELDS = ["sub_industry", "sector", "n", "style", "cycle", "rate", "hhi", "cr4", "median_gross_margin",
                    "median_operating_margin", "median_roic", "median_revenue_cagr_3y", "revenue_cagr_5y_aggregate",
-                   "median_dso", "median_dpo", "median_market_beta", "median_rate_t"]
+                   "median_dso", "median_dpo", "median_market_beta", "median_rate_t", "median_implied_growth",
+                   "median_return_spread", "median_rpo_coverage"]
 PROFILE_FIELDS = ["market_structure", "market_structure_rationale", "supplier_power", "supplier_power_rationale",
                   "customer_power", "customer_power_rationale", "tam_usd_bn", "tam_cagr_5y_pct", "tam_bucket",
                   "tam_rationale", "nature", "nature_rationale", "macro_drivers", "moat_sources", "confidence",
-                  "overridden", "tam_verified"]
+                  "overridden", "tam_verified", "bottleneck", "bottleneck_rationale", "ai_role"]
 COMPANY_FIELDS = ["ticker", "name", "sector", "sub_industry", "index", "price", "market_cap", "size", "style", "cycle",
                   "rate", "growth_score", "value_score", "cycle_score", "quality_score", "market_beta", "rate_beta",
                   "rate_t", "cycle_beta", "revenue_elasticity", "revenue", "revenue_cagr_3y", "revenue_growth_latest_q",
                   "gross_margin", "operating_margin", "fcf_margin", "roic", "roe", "piotroski", "net_debt_to_ebitda",
                   "interest_coverage", "pe", "pb", "ev_ebitda", "fcf_yield", "dividend_yield", "dso", "dpo",
-                  "pricing_power_pct", "momentum_12m", "fiscal_year"]
+                  "pricing_power_pct", "momentum_12m", "fiscal_year",
+                  # hedge-fund questions
+                  "pricing_trend", "gross_margin_5y_median", "rpo_coverage", "rpo_growth", "revenue_growth_volatility",
+                  "revenue_down_years", "revenue_quality", "revenue_quality_score", "dcf_base", "implied_growth",
+                  "delivered_growth", "implied_roe", "implied_gap", "priced_in", "wacc", "cost_of_equity", "return_spread",
+                  "levered_payout", "rate_test", "crowding", "crowding_score", "drawdown_12m", "valuation_premium_pct",
+                  "fund_momentum", "revenue_acceleration"]
 
 
 def industry_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -206,8 +265,13 @@ def filter_payload(step: str, state: ScreenState) -> Dict[str, Any]:
     payload = {"step": step, "position": ORDER.index(step), "steps": ORDER, "title": spec["title"],
                "question": spec["question"], "explain": spec["explain"], "remaining": len(rows),
                "dimensions": dims, "industries": industry_rows(rows), "suggestion_note": sugg.get("summary")}
-    if step == "cycle":
+    if step in ("cycle", "valuation"):
         payload["regime"] = load_dataset()["regime"]
+    if spec.get("company_cols"):  # company-level questions: show the companies themselves, best quality first
+        ranked = sorted(rows, key=lambda r: r.get("quality_score") or 0, reverse=True)[:COMPANY_PREVIEW]
+        payload["company_cols"] = spec["company_cols"]
+        payload["companies"] = [{**{k: r.get(k) for k in ("ticker", "name", "sub_industry", "quality_score")},
+                                 **{k: r.get(k) for k in spec["company_cols"]}} for r in ranked]
     return payload
 
 
@@ -265,6 +329,13 @@ class Suggestions(BaseModel):
     supplier_power: List[str] = Field(default_factory=list, description=f"subset of {profiles.POWER}")
     customer_power: List[str] = Field(default_factory=list, description=f"subset of {profiles.POWER}")
     tam_bucket: List[str] = Field(default_factory=list, description=f"subset of {profiles.TAM_BUCKETS}")
+    bottleneck: List[str] = Field(default_factory=list, description=f"subset of {profiles.BOTTLENECKS} (the industry controls a scarce input)")
+    pricing_trend: List[str] = Field(default_factory=list, description=f"subset of {hedge.PRICING_LABELS} (gross margin and backlog trend)")
+    revenue_quality: List[str] = Field(default_factory=list, description=f"subset of {hedge.QUALITY_LABELS} (contracted, steady revenue)")
+    priced_in: List[str] = Field(default_factory=list, description=f"subset of {hedge.PRICED_IN_LABELS} (reverse-DCF implied growth vs delivered)")
+    rate_test: List[str] = Field(default_factory=list, description=f"subset of {hedge.RATE_TEST_LABELS} (ROIC above WACC at today's rates)")
+    crowding: List[str] = Field(default_factory=list, description=f"subset of {hedge.CROWDING_LABELS} (momentum + valuation premium)")
+    fund_momentum: List[str] = Field(default_factory=list, description=f"subset of {hedge.MOMENTUM_LABELS} (revenue growth speeding up)")
     summary: str = Field(description="One or two sentences in Traditional Chinese explaining the suggestions")
 
 
@@ -329,7 +400,7 @@ def shortlist(state: ScreenState, config) -> Command:
     data = load_dataset()
     profs = profiles.merged_profiles()
     q = {**QUALITY_DEFAULTS, **(state.get("quality") or {})}
-    rows = [dict(r) for r in candidates(state, "shortlist") if passes_quality(r, q)]
+    rows = [dict(r) for r in candidates(state, "shortlist")]
     universe_feats = [preferences.raw_features(r, profs.get(r["sub_industry"])) for r in data["companies"]]
     prompt = f"Investor goals: {state.get('goals') or '(none)'}; filters: {state.get('choices')}"
     ranked, info = preferences.rank(rows, profs, universe_feats, prompt)
@@ -338,19 +409,22 @@ def shortlist(state: ScreenState, config) -> Command:
     ratings = {f["chosen"]["ticker"]: f["rating"] for f in fb if f["type"] == "rating"}
     compared = {tuple(sorted((f["chosen"]["ticker"], f["rejected"]["ticker"]))) for f in fb if f["type"] == "pair"}
     dives = state.get("deep_dives") or {}
+    checks = state.get("hedge_checks") or {}
     companies = []
     for r in top:
         v = company_view(r)
         v.update(score=r["score"], learned_score=r.get("learned_score"), reward_score=r.get("reward_score"),
-                 rating=ratings.get(r["ticker"]), deep_dive=dives.get(r["ticker"]),
+                 rating=ratings.get(r["ticker"]), deep_dive=dives.get(r["ticker"]), hedge_check=checks.get(r["ticker"]),
                  profile={k: profs.get(r["sub_industry"], {}).get(k) for k in
-                          ("market_structure", "supplier_power", "customer_power", "tam_bucket", "tam_cagr_5y_pct")})
+                          ("market_structure", "supplier_power", "customer_power", "tam_bucket", "tam_cagr_5y_pct",
+                           "bottleneck", "ai_role")})
         companies.append(v)
     payload = {"step": "shortlist", "position": ORDER.index("shortlist"), "steps": ORDER, "title": "候選名單",
                "question": "這些公司通過了你所有的條件，依基本面品質與你的偏好排序。按 👍/👎 或回答下方的二選一，排序會學習你的偏好。",
                "remaining": len(rows), "companies": companies, "ranking": info,
                "pairs": _pair_suggestions(top, compared), "choices": state.get("choices"), "quality": q,
-               "deep_dive_estimate_usd": evidence.EST_USD_PER_COMPANY, "cost_usd": state.get("cost_usd") or 0}
+               "deep_dive_estimate_usd": evidence.EST_USD_PER_COMPANY,
+               "hedge_check_estimate_usd": hedge_check.EST_USD_PER_COMPANY, "cost_usd": state.get("cost_usd") or 0}
     answer = interrupt(payload)
     action = answer.get("action", "stay")
     by_ticker = {r["ticker"]: r for r in rows}
@@ -371,6 +445,9 @@ def shortlist(state: ScreenState, config) -> Command:
     if action == "deep_dive":
         tickers = [t for t in answer.get("tickers") or [] if t in by_ticker][:MAX_DEEP_DIVES]
         return Command(goto="deep_dive", update={"pending_deep_dive": tickers})
+    if action == "hedge_check":
+        tickers = [t for t in answer.get("tickers") or [] if t in by_ticker][:MAX_DEEP_DIVES]
+        return Command(goto="hedge_check", update={"pending_hedge_check": tickers})
     if action == "finish":
         return Command(goto=END, update={"finished": True})
     if action in ("back", "goto", "restart"):
@@ -378,28 +455,38 @@ def shortlist(state: ScreenState, config) -> Command:
     return Command(goto="shortlist")
 
 
-def deep_dive(state: ScreenState) -> Dict[str, Any]:
+def _run_checks(state: ScreenState, pending: str, done: str, check) -> Dict[str, Any]:
+    """Run `check(row, profile)` for each pending ticker in parallel and add the cost to the session."""
     data = load_dataset()
     profs = profiles.merged_profiles()
     by_ticker = {r["ticker"]: r for r in data["companies"]}
     before = len(meter_rows())
-    results = dict(state.get("deep_dives") or {})
+    results = dict(state.get(done) or {})
 
     def one(t: str):
         try:
             r = by_ticker[t]
-            return t, {k: v for k, v in evidence.deep_dive(r, profs.get(r["sub_industry"])).items() if k != "prompt"}
+            return t, {k: v for k, v in check(r, profs.get(r["sub_industry"])).items() if k != "prompt"}
         except Exception as exc:  # a missing 10-K must not lose the others
-            logger.warning("Deep dive %s failed: %s", t, exc)
+            logger.warning("%s %s failed: %s", done, t, exc)
             return t, {"error": f"{type(exc).__name__}: {exc}"}
 
-    tickers = state.get("pending_deep_dive") or []
+    tickers = state.get(pending) or []
     with ThreadPoolExecutor(max_workers=4) as pool:  # contexts copied in this thread, so the meter sees each call
         for f in [pool.submit(contextvars.copy_context().run, one, t) for t in tickers]:
             t, res = f.result()
             results[t] = res
     cost = sum(r["usd"] for r in meter_rows()[before:])
-    return {"deep_dives": results, "pending_deep_dive": [], "cost_usd": (state.get("cost_usd") or 0) + cost}
+    return {done: results, pending: [], "cost_usd": (state.get("cost_usd") or 0) + cost}
+
+
+def deep_dive(state: ScreenState) -> Dict[str, Any]:
+    return _run_checks(state, "pending_deep_dive", "deep_dives", lambda r, p: evidence.deep_dive(r, p))
+
+
+def run_hedge_check(state: ScreenState) -> Dict[str, Any]:
+    regime = load_dataset()["regime"]
+    return _run_checks(state, "pending_hedge_check", "hedge_checks", lambda r, p: hedge_check.check(r, p, regime))
 
 
 def build_graph(checkpointer=None):
@@ -409,11 +496,13 @@ def build_graph(checkpointer=None):
     for step in FILTER_STEPS:
         g.add_node(step, make_filter_node(step), destinations=tuple(ORDER))
     g.add_node("quality", quality, destinations=tuple(ORDER))
-    g.add_node("shortlist", shortlist, destinations=("deep_dive", END, *ORDER))
+    g.add_node("shortlist", shortlist, destinations=("deep_dive", "hedge_check", END, *ORDER))
     g.add_node("deep_dive", deep_dive)
+    g.add_node("hedge_check", run_hedge_check)
     g.add_edge(START, "overview")
     g.add_edge("interpret_goals", "style")
     g.add_edge("deep_dive", "shortlist")
+    g.add_edge("hedge_check", "shortlist")
     return g.compile(checkpointer=checkpointer)
 
 

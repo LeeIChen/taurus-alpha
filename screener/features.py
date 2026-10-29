@@ -6,6 +6,8 @@ Labels computed here (the model adds market structure, bargaining power and TAM 
 - cycle: market beta, leading-index beta and revenue elasticity to industrial production -> 高 / 中 / 低
 - rates: 10-year-yield beta (market held fixed) -> 升息受害 / 不敏感 / 升息受惠
 - quality: sector-relative percentiles of returns, margins, cash flow, leverage and the Piotroski F-score
+- hedge-fund questions (hedge.py): reverse DCF, ROIC vs WACC at today's 10-year yield, revenue quality,
+  pricing-power trend, crowding and fundamental momentum
 
 The dataset is saved to data/screener/dataset.json; build it with scripts/build_screener_data.py.
 """
@@ -196,6 +198,8 @@ def industry_table(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
             "median_cycle_score": med("cycle_score"), "median_rate_t": med("rate_t"),
             "median_market_beta": med("market_beta"), "median_revenue_elasticity": med("revenue_elasticity"),
             "median_dso": med("dso"), "median_dpo": med("dpo"), "median_gross_margin_stability": med("gross_margin_stability"),
+            "median_implied_growth": med("implied_growth"), "median_return_spread": med("return_spread"),
+            "median_rpo_coverage": med("rpo_coverage"),
             "growth_share": share("style", "成長"), "value_share": share("style", "價值"),
         }
     # industry-level quantitative labels
@@ -232,8 +236,12 @@ def build_dataset(progress: Callable[[str], None] = lambda s: logger.info(s), to
         add_valuation(row)
         rows.append(row)
     label_companies(rows)
+    from screener import hedge  # imports this module
+
+    regime = macro.regime()
+    hedge.add_metrics(rows, rf=regime["ten_year"] / 100)
     industries = industry_table(rows)
-    data = {"built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "regime": macro.regime(),
+    data = {"built_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "regime": regime,
             "companies": rows, "industries": industries}
     DATASET_PATH.parent.mkdir(parents=True, exist_ok=True)
     DATASET_PATH.write_text(json.dumps(finite(data), default=str, allow_nan=False))

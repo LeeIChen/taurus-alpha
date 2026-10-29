@@ -119,8 +119,8 @@ def current(sid: str) -> Dict[str, Any]:
 @router.post("/screen/{sid}/answer")
 def answer(sid: str, body: Dict[str, Any]) -> Dict[str, Any]:
     _payload(sid)  # 404 for unknown sessions
-    if body.get("action") == "deep_dive" and not body.get("confirm"):
-        raise HTTPException(status_code=402, detail="Deep dives call Claude; resend with confirm=true")
+    if body.get("action") in ("deep_dive", "hedge_check") and not body.get("confirm"):
+        raise HTTPException(status_code=402, detail="This step calls Claude; resend with confirm=true")
     meter = start_meter()
     with _lock(sid):
         get_graph().invoke(Command(resume=body), _config(sid))
