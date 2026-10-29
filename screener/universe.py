@@ -2,7 +2,8 @@
 
 Source: the constituent tables on Wikipedia's "List of S&P 500/400/600 companies" pages (wikitext,
 no API key), cached in data/screener/universe.json for a week. CIKs come from SEC's ticker table when
-it lists the ticker (Wikipedia's otherwise). GICS sub-industry is the industry unit the screener classifies.
+it lists the ticker (Wikipedia's otherwise). GICS sub-industry is the industry unit the screener classifies. WATCHLIST adds a few companies outside
+the index (Zscaler, Nebius, CoreWeave...) so they can be compared with their peers.
 """
 
 from __future__ import annotations
@@ -28,6 +29,23 @@ PAGES = {
     "S&P 500": "List_of_S%26P_500_companies",
     "S&P 400": "List_of_S%26P_400_companies",
     "S&P 600": "List_of_S%26P_600_companies",
+}
+# Companies outside the S&P 1500 worth screening against their peers: ticker -> (name, GICS sector, sub-industry).
+# Sub-industries are the closest GICS fit (bitcoin miners turning to AI hosting sit with data-center builders).
+WATCHLIST = {
+    "ZS": ("Zscaler", "Information Technology", "Systems Software"),
+    "NET": ("Cloudflare", "Information Technology", "Internet Services & Infrastructure"),
+    "S": ("SentinelOne", "Information Technology", "Systems Software"),
+    "CHKP": ("Check Point Software", "Information Technology", "Systems Software"),
+    "TENB": ("Tenable", "Information Technology", "Systems Software"),
+    "RPD": ("Rapid7", "Information Technology", "Systems Software"),
+    "VRNS": ("Varonis Systems", "Information Technology", "Systems Software"),
+    "NBIS": ("Nebius Group", "Information Technology", "Internet Services & Infrastructure"),
+    "CRWV": ("CoreWeave", "Information Technology", "Internet Services & Infrastructure"),
+    "IREN": ("IREN", "Information Technology", "Internet Services & Infrastructure"),
+    "APLD": ("Applied Digital", "Information Technology", "Internet Services & Infrastructure"),
+    "CIFR": ("Cipher Digital", "Information Technology", "Internet Services & Infrastructure"),
+    "WULF": ("TeraWulf", "Information Technology", "Internet Services & Infrastructure"),
 }
 
 
@@ -113,4 +131,19 @@ def load_universe(refresh: bool = False) -> List[Dict[str, Any]]:
             if not UNIVERSE_PATH.exists():
                 raise
             logger.warning("Universe refresh failed (%s); using cached copy", exc)
-    return json.loads(UNIVERSE_PATH.read_text())
+    rows = json.loads(UNIVERSE_PATH.read_text())
+    return rows + watchlist({r["ticker"] for r in rows})
+
+
+def watchlist(have: set) -> List[Dict[str, Any]]:
+    """WATCHLIST rows not already in the index, with CIKs from SEC's ticker table."""
+    tickers = _ticker_table()
+    out = []
+    for t, (name, sector, sub) in WATCHLIST.items():
+        if t in have:
+            continue
+        if t not in tickers:
+            logger.warning("Watchlist ticker %s has no SEC CIK (dropped)", t)
+            continue
+        out.append({"ticker": t, "name": name, "sector": sector, "sub_industry": sub, "cik": tickers[t]["cik"], "index": "觀察名單"})
+    return out
