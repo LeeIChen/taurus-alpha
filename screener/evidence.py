@@ -79,13 +79,19 @@ def cached(ticker: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+ANNUAL_FORMS = ["10-K", "20-F"]
+
+
 def filing_pages(ticker: str, company: str, cik: int, queries: Optional[Dict[str, str]] = None,
                  max_pages: int = MAX_PAGES) -> List[Dict[str, Any]]:
-    paths = fetch_company_filings(ticker, company, cik, forms=["10-K"])
+    for form in ANNUAL_FORMS:  # foreign filers (Nebius) file a 20-F; a company that moved to 10-Ks uses those
+        paths = fetch_company_filings(ticker, company, cik, forms=[form])
+        if paths:
+            break
     add_filing_files(paths)
     seen, pages = set(), []
     for q in (queries or QUERIES).values():
-        for d in default_index.search(q, filters={"ticker": [ticker], "doc_type": ["10-K"]}, top_k=PAGES_PER_QUERY):
+        for d in default_index.search(q, filters={"ticker": [ticker], "doc_type": ANNUAL_FORMS}, top_k=PAGES_PER_QUERY):
             if d["doc_id"] not in seen:
                 seen.add(d["doc_id"])
                 pages.append(d)

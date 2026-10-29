@@ -74,8 +74,12 @@ estimates are rising or falling and what the price implies (the screener's rever
 it earns its cost of capital at today's interest rates; and which dated catalysts are coming and how
 crowded the stock is (short interest, popularity).
 
-Use the 10-K pages for contracts and backlog, and web search for news, estimates, short interest and event
-dates from the last 3 months. Cite every web fact with its URL in angle brackets, like <https://...>, and
+Use the 10-K pages for contracts and backlog. Always run web searches, in this order, before writing:
+1. analysts' estimate revisions and price-target changes over the last 3 months;
+2. short interest as a percent of float;
+3. the next earnings date and other dated events (contracts, rulings, product launches);
+4. news from the last 3 months, including the latest quarter's revenue growth.
+Never conclude a fact is unavailable without having searched for it. Cite every web fact with its URL in angle brackets, like <https://...>, and
 10-K facts with the page id in square brackets. Say "not found" rather than guessing a number. Write in
 Traditional Chinese (繁體中文), concise, in short sections for the five questions, then kill criteria and a verdict."""
 
