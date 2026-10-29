@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>taurus-alpha 選股精靈</title>
+<style>
+:root {
+  --bg: #f6f5f1; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a65; --line: #e3e1da;
+  --accent: #1f5f8b; --accent-soft: #e4eef5; --good: #2f7d4f; --bad: #b4443a; --warn: #9a6a12;
+  --chip: #f0efe9; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #a09f98; --line: #34332f;
+          --accent: #7fb3d9; --accent-soft: #23323d; --good: #6cc08f; --bad: #e0857b; --warn: #d9a94b;
+          --chip: #2a2a27; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+       font: 14px/1.55 -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif; }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 80px; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
+h1 { font-size: 20px; margin: 0; letter-spacing: .02em; }
+h1 small { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 8px; }
+.meta { color: var(--muted); font-size: 13px; }
+.meta b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.steps { display: flex; gap: 4px; margin: 16px 0; overflow-x: auto; padding-bottom: 4px; }
+.steps button { flex: 1 0 auto; border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+                padding: 6px 10px; border-radius: 6px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+.steps button.done { color: var(--ink); }
+.steps button.cur { background: var(--accent); border-color: var(--accent); color: #fff; }
+.steps button:disabled { cursor: default; opacity: .55; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+h2 { font-size: 18px; margin: 0 0 4px; }
+.q { font-size: 15px; margin: 0 0 8px; }
+.explain { color: var(--muted); font-size: 13px; margin: 0; }
+.regime { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; }
+.stat { background: var(--chip); border-radius: 8px; padding: 10px 12px; }
+.stat .k { color: var(--muted); font-size: 12px; }
+.stat .v { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .s { font-size: 12px; color: var(--muted); }
+.hint { margin-top: 10px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; font-size: 13.5px; }
+.dim { margin: 14px 0 6px; }
+.dim-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+.dim-head b { font-size: 14.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 999px;
+        padding: 7px 14px; cursor: pointer; font-size: 14px; user-select: none; }
+.chip .n { color: var(--muted); font-size: 12px; margin-left: 6px; font-variant-numeric: tabular-nums; }
+.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip.on .n { color: #dfe9f1; }
+.chip.sugg { box-shadow: inset 0 0 0 2px var(--warn); }
+.chip.on.sugg { box-shadow: none; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; font-size: 12px; }
+.seg button { border: 0; background: var(--panel); color: var(--muted); padding: 3px 9px; cursor: pointer; }
+.seg button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.nav { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 14px; }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.small { padding: 3px 9px; font-size: 12.5px; border-radius: 6px; }
+.btn:disabled { opacity: .5; cursor: wait; }
+textarea { width: 100%; min-height: 64px; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; background: var(--panel); color: var(--ink); }
+.tablebox { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; max-height: 560px; overflow-y: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap; z-index: 1; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.dimmed td { color: var(--muted); }
+.why { color: var(--muted); font-size: 12px; max-width: 420px; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 4px; background: var(--chip); font-size: 12px; white-space: nowrap; }
+.tag.ovr { box-shadow: inset 0 0 0 1px var(--warn); }
+select { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); color: var(--ink); padding: 2px 4px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0 8px; }
+.toolbar input[type=search] { border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; background: var(--panel); color: var(--ink); min-width: 200px; }
+.banner { padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.banner.warn { background: color-mix(in srgb, var(--warn) 15%, transparent); }
+.cards { display: grid; gap: 10px; }
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.card-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.card-head .rank { color: var(--muted); font-variant-numeric: tabular-nums; width: 26px; }
+.card-head .t { font-weight: 700; font-size: 15px; }
+.card-head .sub { color: var(--muted); font-size: 12.5px; }
+.card-head .score { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 7px 0; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: 4px 12px; font-size: 12.5px; }
+.metrics span { color: var(--muted); }
+.metrics b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.card-actions { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; align-items: center; }
+.vote.on.up { background: var(--good); color: #fff; border-color: var(--good); }
+.vote.on.down { background: var(--bad); color: #fff; border-color: var(--bad); }
+.dd { margin-top: 10px; padding: 10px 12px; background: var(--chip); border-radius: 8px; font-size: 13px; }
+.dd ul { margin: 6px 0 0 18px; padding: 0; }
+.dd a { color: var(--accent); }
+.pairs { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.pair { border: 1px dashed var(--line); border-radius: 10px; padding: 10px; display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.prefs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.err { color: var(--bad); white-space: pre-wrap; }
+.busy { position: fixed; inset: 0; background: color-mix(in srgb, var(--bg) 60%, transparent); display: grid; place-items: center; z-index: 10; }
+.busy div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 22px; }
+.report { white-space: pre-wrap; font-size: 13.5px; max-height: 70vh; overflow: auto; background: var(--chip); padding: 14px; border-radius: 8px; }
+.qgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+.qgrid label { display: grid; gap: 4px; font-size: 13px; }
+.qgrid input[type=number] { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; background: var(--panel); color: var(--ink); width: 100%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>taurus-alpha 選股精靈<small>S&amp;P 1500 · 一步步篩出基本面強健的公司</small></h1>
+    <div class="meta" id="meta"></div>
+  </header>
+  <nav class="steps" id="steps"></nav>
+  <main id="main"><div class="panel">載入中…</div></main>
+</div>
+<div class="busy" id="busy" hidden><div id="busyText">處理中…</div></div>
+
+<script>
+const STEP_NAMES = {overview: "產業地圖", style: "成長/價值", size: "規模", cycle: "景氣/利率", structure: "競爭結構",
+  power: "議價力", tam: "TAM", quality: "基本面", edge: "瓶頸/營收品質", valuation: "反向DCF/利率", timing: "擁擠/催化劑",
+  shortlist: "候選名單"};
+let S = null;            // current payload
+let visited = new Set(["overview"]);
+let draft = {};          // field -> Set of selected values for the current step
+let levels = {};         // field -> "company" | "industry"
+let tableState = {sort: null, dir: -1, q: "", all: false};
+let picked = new Set();  // tickers chosen for a deep dive
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const pct = (v, d = 0) => v == null ? "—" : (v * 100).toFixed(d) + "%";
+const num = (v, d = 1) => v == null ? "—" : Number(v).toFixed(d);
+const money = v => v == null ? "—" : v >= 1e12 ? "$" + (v / 1e12).toFixed(2) + "T" : v >= 1e9 ? "$" + (v / 1e9).toFixed(1) + "B" : "$" + (v / 1e6).toFixed(0) + "M";
+const usd = v => "$" + Number(v || 0).toFixed(2);
+
+function busy(on, text = "處理中…") { $("#busy").hidden = !on; $("#busyText").textContent = text; }
+
+async function api(path, body, method = "POST") {
+  const r = await fetch(path, {method, headers: {"Content-Type": "application/json"}, body: body ? JSON.stringify(body) : undefined});
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.detail || r.statusText);
+  return data;
+}
+
+async function send(answer, text) {
+  busy(true, text);
+  try {
+    S = await api(`/screen/${S.session_id}/answer`, answer);
+    afterLoad();
+  } catch (e) { alert("錯誤：" + e.message); }
+  finally { busy(false); }
+}
+
+function afterLoad() {
+  try { localStorage.setItem("taurus-screen", S.session_id); } catch (e) {}
+  visited.add(S.step);
+  draft = {}; levels = {};
+  for (const d of S.dimensions || []) {
+    draft[d.field] = new Set(d.selected.length ? d.selected : (d.suggested || []));
+    levels[d.field] = d.level;
+  }
+  tableState = {sort: null, dir: -1, q: "", all: false};
+  ctable = {sort: null, dir: -1};
+  render();
+  window.scrollTo({top: 0});
+}
+
+function renderSteps() {
+  const order = S.steps || Object.keys(STEP_NAMES);
+  $("#steps").innerHTML = order.map(s => `<button class="${s === S.step ? "cur" : visited.has(s) ? "done" : ""}"
+      ${visited.has(s) && s !== S.step ? "" : "disabled"} data-goto="${s}">${STEP_NAMES[s] || s}</button>`).join("");
+  $("#steps").querySelectorAll("[data-goto]").forEach(b => b.onclick = () => send({action: "goto", step: b.dataset.goto}));
+  $("#meta").innerHTML = `剩下 <b>${S.remaining ?? "—"}</b> 家 · 本次花費 <b>${usd(S.session_cost_usd)}</b>`;
+}
+
+function regimeHTML(r) {
+  if (!r) return "";
+  return `<div class="regime">
+    <div class="stat"><div class="k">景氣階段（領先指標 ${r.as_of}）</div><div class="v">${esc(r.phase)}</div>
+      <div class="s">合成領先指數 ${num(r.leading_index, 2)}（3 個月前 ${num(r.leading_index_3m_ago, 2)}）</div></div>
+    <div class="stat"><div class="k">十年期公債殖利率</div><div class="v">${num(r.ten_year, 2)}%</div>
+      <div class="s">6 個月前 ${num(r.ten_year_6m_ago, 2)}% · ${esc(r.rates)}</div></div>
+    <div class="stat"><div class="k">聯邦基金利率</div><div class="v">${num(r.fed_funds, 2)}%</div>
+      <div class="s">6 個月前 ${num(r.fed_funds_6m_ago, 2)}% · ${esc(r.policy)}</div></div>
+  </div>
+  <div class="hint">${esc(r.phase_hint)}<br>${esc(r.rate_hint)}</div>`;
+}
+
+// ---- industry table ----
+const IND_COLS = {
+  overview: ["sub_industry", "sector", "n", "nature", "cycle", "rate", "market_structure", "supplier_power", "customer_power", "tam_bucket", "bottleneck"],
+  style: ["sub_industry", "candidates", "nature", "style", "median_revenue_cagr_3y", "nature_rationale"],
+  size: ["sub_industry", "candidates", "n", "sector"],
+  cycle: ["sub_industry", "candidates", "cycle", "rate", "median_market_beta", "median_rate_t", "macro_drivers"],
+  structure: ["sub_industry", "candidates", "market_structure", "hhi", "cr4", "market_structure_rationale"],
+  power: ["sub_industry", "candidates", "supplier_power", "customer_power", "median_gross_margin", "median_dso", "median_dpo", "power_rationale"],
+  tam: ["sub_industry", "candidates", "tam_bucket", "tam_cagr_5y_pct", "tam_usd_bn", "revenue_cagr_5y_aggregate", "tam_rationale"],
+  quality: ["sub_industry", "candidates", "median_roic", "median_operating_margin", "median_gross_margin"],
+  edge: ["sub_industry", "candidates", "bottleneck", "ai_role", "median_rpo_coverage", "median_gross_margin", "bottleneck_rationale"],
+  valuation: ["sub_industry", "candidates", "median_implied_growth", "median_revenue_cagr_3y", "median_return_spread", "median_roic"],
+  timing: ["sub_industry", "candidates", "cycle", "rate", "median_market_beta", "macro_drivers"],
+};
+const COL = {
+  sub_industry: ["產業（GICS 子產業）"], sector: ["類股"], n: ["成員", "num"], candidates: ["候選", "num"],
+  nature: ["產業屬性"], style: ["量化風格"], cycle: ["景氣敏感"], rate: ["利率敏感"],
+  market_structure: ["市場結構", "", "edit"], supplier_power: ["對供應商", "", "edit"], customer_power: ["對客戶", "", "edit"],
+  tam_bucket: ["TAM 成長", "", "edit"], tam_cagr_5y_pct: ["TAM 年成長", "num"], tam_usd_bn: ["TAM 規模", "num"],
+  hhi: ["HHI*", "num"], cr4: ["前四大*", "num"], median_gross_margin: ["毛利率中位", "num"], median_operating_margin: ["營益率中位", "num"],
+  median_roic: ["ROIC 中位", "num"], median_revenue_cagr_3y: ["3 年營收 CAGR", "num"], revenue_cagr_5y_aggregate: ["過去 5 年營收 CAGR", "num"],
+  median_dso: ["DSO 天", "num"], median_dpo: ["DPO 天", "num"], median_market_beta: ["市場 Beta", "num"], median_rate_t: ["利率 t 值", "num"],
+  nature_rationale: ["理由"], macro_drivers: ["主要總經驅動"], market_structure_rationale: ["理由"], power_rationale: ["理由"], tam_rationale: ["理由"],
+  bottleneck: ["瓶頸地位", "", "edit"], ai_role: ["AI 產業鏈位置"], bottleneck_rationale: ["理由"],
+  median_rpo_coverage: ["RPO/營收 中位", "num"], median_implied_growth: ["隱含成長中位", "num"], median_return_spread: ["ROIC−WACC 中位", "num"],
+};
+const OPTS = {market_structure: ["獨占", "寡占", "壟斷性競爭", "接近完全競爭"], supplier_power: ["強", "中", "弱"],
+              customer_power: ["強", "中", "弱"], tam_bucket: ["高成長", "中度成長", "低成長", "萎縮"],
+              bottleneck: ["關鍵瓶頸", "部分瓶頸", "非瓶頸"]};
+
+function cell(row, c) {
+  const v = row[c];
+  if (COL[c]?.[2] === "edit") {
+    if (v == null) return `<span class="tag">未分類</span>`;
+    const ovr = (row.overridden || []).includes(c);
+    return `<select data-ovr="${esc(row.sub_industry)}" data-field="${c}" class="${ovr ? "tag ovr" : ""}" title="${ovr ? "你改過的標籤" : "不同意可直接改"}">
+      ${OPTS[c].map(o => `<option ${o === v ? "selected" : ""}>${o}</option>`).join("")}</select>`;
+  }
+  if (["median_gross_margin", "median_operating_margin", "median_roic", "median_revenue_cagr_3y", "revenue_cagr_5y_aggregate", "cr4",
+       "median_implied_growth", "median_return_spread"].includes(c)) return pct(v, 1);
+  if (c === "median_rpo_coverage") return v == null ? "—" : num(v, 2) + " 年";
+  if (c === "hhi") return v == null ? "—" : Math.round(v).toLocaleString();
+  if (c === "tam_cagr_5y_pct") return v == null ? "—" : num(v, 1) + "%" + (row.tam_verified ? " ✓" : "");
+  if (c === "tam_usd_bn") return v == null ? "—" : "$" + Math.round(v).toLocaleString() + "B";
+  if (["median_dso", "median_dpo"].includes(c)) return num(v, 0);
+  if (["median_market_beta", "median_rate_t"].includes(c)) return num(v, 2);
+  if (c === "power_rationale") return `<div class="why">上游：${esc(row.supplier_power_rationale)}<br>下游：${esc(row.customer_power_rationale)}</div>`;
+  if (c.endsWith("rationale") || c === "macro_drivers") {
+    let extra = "";
+    if (c === "tam_rationale") extra = row.tam_verified ? `<br><b>查證：</b>${esc(row.tam_verified.summary)}` :
+      ` <button class="btn small" data-tam="${esc(row.sub_industry)}">網路查證</button>`;
+    return `<div class="why">${esc(v)}${extra}</div>`;
+  }
+  return v == null ? "—" : esc(v);
+}
+
+function industryTable(step) {
+  const cols = IND_COLS[step] || IND_COLS.overview;
+  let rows = (S.industries || []).slice();
+  const showAll = step === "overview" || tableState.all;
+  if (!showAll) rows = rows.filter(r => r.candidates > 0);
+  if (tableState.q) rows = rows.filter(r => (r.sub_industry + r.sector).toLowerCase().includes(tableState.q.toLowerCase()));
+  if (tableState.sort) rows.sort((a, b) => {
+    const x = a[tableState.sort], y = b[tableState.sort];
+    if (x == null) return 1; if (y == null) return -1;
+    return (x > y ? 1 : x < y ? -1 : 0) * tableState.dir;
+  });
+  return `<div class="toolbar">
+      <input type="search" id="tq" placeholder="搜尋產業或類股" value="${esc(tableState.q)}">
+      ${step !== "overview" ? `<label><input type="checkbox" id="tall" ${tableState.all ? "checked" : ""}> 顯示沒有候選公司的產業</label>` : ""}
+      <span class="meta">${rows.length} 個產業 · 有底色的下拉選單可直接改正模型的判斷</span></div>
+    <div class="tablebox"><table><thead><tr>${cols.map(c => `<th class="${COL[c]?.[1] || ""}" data-sort="${c}">${COL[c]?.[0] || c}${tableState.sort === c ? (tableState.dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr class="${r.candidates === 0 && step !== "overview" ? "dimmed" : ""}">${cols.map(c => `<td class="${COL[c]?.[1] || ""}">${cell(r, c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    ${cols.includes("hhi") ? `<p class="explain">* HHI 與前四大市占只計算 S&P 1500 成員，會高估集中度；市場結構以模型對全球市場的判斷為主。</p>` : ""}`;
+}
+
+function bindTable() {
+  const q = $("#tq"); if (q) q.oninput = e => { tableState.q = e.target.value; rerenderTable(); };
+  const a = $("#tall"); if (a) a.onchange = e => { tableState.all = e.target.checked; rerenderTable(); };
+  document.querySelectorAll("th[data-sort]").forEach(th => th.onclick = () => {
+    tableState.dir = tableState.sort === th.dataset.sort ? -tableState.dir : -1; tableState.sort = th.dataset.sort; rerenderTable();
+  });
+  document.querySelectorAll("select[data-ovr]").forEach(sel => sel.onchange = () => {
+    const note = prompt(`把「${sel.dataset.ovr}」的${COL[sel.dataset.field][0]}改成「${sel.value}」。理由（選填）：`) ?? "";
+    send({action: "goto", step: S.step, select: currentSelect(), level: levels,
+          overrides: [{sub_industry: sel.dataset.ovr, field: sel.dataset.field, value: sel.value, note}]}, "更新標籤…");
+  });
+  document.querySelectorAll("[data-tam]").forEach(b => b.onclick = async () => {
+    if (!confirm(`用網路搜尋查證「${b.dataset.tam}」的 TAM，約 $0.15。要繼續嗎？`)) return;
+    busy(true, "查證 TAM 中（約 30–90 秒）…");
+    try { await api(`/screen/tam/${encodeURIComponent(b.dataset.tam)}`, {confirm: true});
+          S = await api(`/screen/${S.session_id}`, null, "GET"); render(); }
+    catch (e) { alert("錯誤：" + e.message); } finally { busy(false); }
+  });
+}
+function rerenderTable() { const box = $("#indtable"); box.innerHTML = industryTable(S.step); bindTable(); const q = $("#tq"); if (q && tableState.q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
+
+function currentSelect() { const o = {}; for (const [k, v] of Object.entries(draft)) o[k] = [...v]; return o; }
+
+// ---- company table (hedge-fund steps) ----
+const CCOL = {
+  ticker: ["代號"], name: ["公司"], sub_industry: ["產業"], quality_score: ["品質", "num", "pct0"],
+  pricing_trend: ["定價權趨勢"], gross_margin: ["毛利率", "num", "pct1"], gross_margin_5y_median: ["5 年毛利率中位", "num", "pct1"],
+  rpo_coverage: ["RPO/營收", "num", "yrs"], rpo_growth: ["RPO 年增", "num", "pct1"], revenue_growth_volatility: ["營收成長波動", "num", "pct1"],
+  revenue_down_years: ["衰退年數", "num", "int"], revenue_quality: ["營收品質"],
+  dcf_base: ["反推基礎"], implied_growth: ["隱含 10 年成長", "num", "pct1"], delivered_growth: ["過去營收成長", "num", "pct1"],
+  priced_in: ["市場預期"], wacc: ["WACC", "num", "pct1"], roic: ["ROIC", "num", "pct1"], return_spread: ["ROIC−WACC", "num", "pct1"],
+  interest_coverage: ["利息保障", "num", "x"], levered_payout: ["借錢回購/配息"], rate_test: ["資金成本檢驗"],
+  crowding: ["擁擠度"], momentum_12m: ["12 月動能", "num", "pct0"], drawdown_12m: ["離高點", "num", "pct0"],
+  valuation_premium_pct: ["估值溢價百分位", "num", "pct0"], implied_gap: ["預期落差", "num", "pct1"],
+  revenue_growth_latest_q: ["最新季營收年增", "num", "pct1"], revenue_cagr_3y: ["3 年營收 CAGR", "num", "pct1"], fund_momentum: ["基本面動能"],
+};
+function fmt(v, kind) {
+  if (v == null) return "—";
+  if (kind === "pct0") return pct(v, 0);
+  if (kind === "pct1") return pct(v, 1);
+  if (kind === "yrs") return num(v, 2) + " 年";
+  if (kind === "x") return num(v, 1) + "×";
+  if (kind === "int") return String(v);
+  if (v === true) return "是"; if (v === false) return "否";
+  return esc(v);
+}
+let ctable = {sort: null, dir: -1};
+function companyTable() {
+  const cols = ["ticker", "name", "sub_industry", "quality_score", ...S.company_cols];
+  const rows = (S.companies || []).slice();
+  if (ctable.sort) rows.sort((a, b) => { const x = a[ctable.sort], y = b[ctable.sort];
+    if (x == null) return 1; if (y == null) return -1; return (x > y ? 1 : x < y ? -1 : 0) * ctable.dir; });
+  return `<div class="tablebox"><table><thead><tr>${cols.map(c => `<th class="${CCOL[c]?.[1] || ""}" data-csort="${c}">${CCOL[c]?.[0] || c}${ctable.sort === c ? (ctable.dir > 0 ? " ↑" : " ↓") : ""}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${cols.map(c => `<td class="${CCOL[c]?.[1] || ""}">${c === "ticker" ? `<b>${esc(r[c])}</b>` : fmt(r[c], CCOL[c]?.[2])}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <p class="explain">列出目前條件下品質分數最高的 ${rows.length} 家（未套用這一步的選擇）。點欄位標題排序。</p>`;
+}
+function bindCompanyTable() {
+  document.querySelectorAll("th[data-csort]").forEach(th => th.onclick = () => {
+    ctable.dir = ctable.sort === th.dataset.csort ? -ctable.dir : -1; ctable.sort = th.dataset.csort;
+    $("#ctable").innerHTML = companyTable(); bindCompanyTable();
+  });
+}
+
+// ---- steps ----
+function renderOverview() {
+  const miss = S.missing_profiles ? `<div class="banner warn">還有 ${S.missing_profiles} 個產業沒有市場結構、議價力與 TAM 的分類（需要 Claude，約 ${usd(S.missing_profiles * 0.015)}）。
+      <button class="btn small" id="classify">分類這些產業</button></div>` : "";
+  return `${miss}<div class="panel"><h2>${esc(S.title)}</h2>
+      <p class="explain">資料更新：${esc(S.built_at)} · 共 ${S.remaining} 家公司（S&P 500 + 400 + 600）</p>${regimeHTML(S.regime)}</div>
+    <div class="panel"><p class="q">${esc(S.question)}</p>
+      <textarea id="goals" placeholder="例如：想找有定價權、不太怕景氣循環的中小型成長股；負債要低。">${esc(S.goals)}</textarea>
+      <div class="nav"><span class="meta">寫了會先用 Claude（約 $0.01）幫你預選各步驟；不寫就從頭自己選。</span>
+      <button class="btn primary" id="next">開始篩選 →</button></div></div>
+    <div class="panel"><h2>產業地圖</h2><p class="explain">每個 GICS 子產業在七個面向上的分類（含價值鏈瓶頸）。點欄位標題排序。基本面門檻之後，還有避險基金會問的三關：誰掌握瓶頸與營收品質、股價反映了多少與利率檢驗、擁擠度與催化劑。</p><div id="indtable">${industryTable("overview")}</div></div>`;
+}
+
+function renderFilter() {
+  const dims = S.dimensions.map(d => `<div class="dim"><div class="dim-head"><b>${esc(d.label)}</b>
+      ${d.can_switch_level ? `<span class="seg"><button data-level="company" data-f="${d.field}" class="${levels[d.field] === "company" ? "on" : ""}">看公司</button><button data-level="industry" data-f="${d.field}" class="${levels[d.field] === "industry" ? "on" : ""}">看產業</button></span>` : ""}
+      <span class="meta">${draft[d.field].size ? "" : "（不選 = 不限）"}</span></div>
+      <div class="chips">${d.options.filter(o => o.value != null).map(o => `<span class="chip ${draft[d.field].has(o.value) ? "on" : ""} ${d.suggested.includes(o.value) ? "sugg" : ""}"
+         data-f="${d.field}" data-v="${esc(o.value)}">${esc(o.value)}<span class="n">${o.companies} 家 · ${o.industries} 產業</span></span>`).join("")}
+       ${d.options.filter(o => o.value == null).map(o => `<span class="meta">${o.companies} 家${esc(o.note)}</span>`).join("")}</div></div>`).join("");
+  const keep = keepCount();
+  return `<div class="panel"><h2>${esc(S.title)}</h2><p class="q">${esc(S.question)}</p><p class="explain">${esc(S.explain)}</p>
+      ${S.suggestion_note ? `<div class="hint">建議（橘框）：${esc(S.suggestion_note)}</div>` : ""}
+      ${S.step === "cycle" || S.step === "valuation" ? regimeHTML(S.regime) : ""}
+      ${dims}
+      <div class="nav"><button class="btn" id="back">← 上一步</button><span class="meta">${keep}</span><button class="btn primary" id="next">下一步 →</button></div></div>
+    ${S.companies ? `<div class="panel"><h2>這一步的公司視角</h2><div id="ctable">${companyTable()}</div></div>` : ""}
+    <div class="panel"><h2>這一步的產業視角</h2><div id="indtable">${industryTable(S.step)}</div></div>`;
+}
+
+function keepCount() {
+  // Counts per option are for one dimension at a time; with two dimensions the server applies both.
+  const chosen = S.dimensions.filter(d => draft[d.field].size);
+  if (!chosen.length) return `目前 ${S.remaining} 家，不篩選`;
+  if (chosen.length > 1) return `${chosen.length} 個條件都會套用（下一步會看到剩下的家數）`;
+  if (chosen.length === 1) {
+    const d = chosen[0];
+    const n = d.options.filter(o => draft[d.field].has(o.value)).reduce((a, o) => a + o.companies, 0);
+    return `選這些會留下約 ${n} / ${S.remaining} 家`;
+  }
+  return `兩個條件都會套用（下一步會看到剩下的家數）`;
+}
+
+function renderQuality() {
+  const q = S.current;
+  return `<div class="panel"><h2>${esc(S.title)}</h2><p class="q">${esc(S.question)}</p><p class="explain">${esc(S.explain)}</p>
+    <div class="regime">${Object.entries(S.presets).map(([k, v]) => `<div class="stat"><div class="k">品質分數 ${esc(k)}</div><div class="v">${v}</div><div class="s">家通過（其他條件不變）</div></div>`).join("")}</div>
+    <div class="qgrid">
+      <label>品質分數最低百分位（0–100）<input type="number" id="q_min" min="0" max="100" step="5" value="${Math.round(q.min_quality * 100)}"></label>
+      <label>Piotroski F 分數至少（0–9）<input type="number" id="q_f" min="0" max="9" value="${q.min_piotroski ?? 0}"></label>
+      <label>淨負債 / EBITDA 最高（倍）<input type="number" id="q_nd" step="0.5" value="${q.max_net_debt_to_ebitda ?? ""}" placeholder="不限"></label>
+      <label><span><input type="checkbox" id="q_fcf" ${q.positive_fcf ? "checked" : ""}> 自由現金流必須為正（金融業不適用）</span></label>
+    </div>
+    <div class="nav"><button class="btn" id="back">← 上一步</button>
+      <span class="meta">目前設定：<b>${S.passing}</b> / ${S.remaining} 家通過 <button class="btn small" id="preview">套用並重算</button></span>
+      <button class="btn primary" id="next">看候選名單 →</button></div></div>
+    <div class="panel"><h2>候選公司分佈在這些產業</h2><div id="indtable">${industryTable("quality")}</div></div>`;
+}
+
+function qualityAnswer() {
+  const nd = $("#q_nd").value;
+  return {min_quality: Number($("#q_min").value) / 100, min_piotroski: Number($("#q_f").value),
+          max_net_debt_to_ebitda: nd === "" ? null : Number(nd), positive_fcf: $("#q_fcf").checked};
+}
+
+function companyCard(c, i) {
+  const p = c.profile || {};
+  const dd = c.deep_dive;
+  const ddHTML = !dd ? "" : dd.error ? `<div class="dd err">10-K 驗證失敗：${esc(dd.error)}</div>` :
+    `<div class="dd"><b>10-K 驗證（${esc(dd.filing)}）</b>：護城河 <b>${esc(dd.moat)}</b> — ${esc(dd.moat_rationale)}<br>
+      對供應商 <b>${esc(dd.supplier_power)}</b> — ${esc(dd.supplier_power_rationale)}<br>
+      對客戶 <b>${esc(dd.customer_power)}</b> — ${esc(dd.customer_power_rationale)}<br>
+      ${dd.market_position ? `市場地位：${esc(dd.market_position)}<br>` : ""}
+      ${dd.red_flags?.length ? `<span style="color:var(--bad)">注意：${dd.red_flags.map(esc).join("；")}</span>` : ""}
+      <ul>${(dd.evidence || []).map(e => `<li>${esc(e.claim)} <a href="${esc(e.url)}" target="_blank" rel="noopener">[${esc(e.page_id)}]</a></li>`).join("")}</ul></div>`;
+  const hc = c.hedge_check;
+  const hcHTML = !hc ? "" : hc.error ? `<div class="dd err">避險基金查核失敗：${esc(hc.error)}</div>` :
+    `<div class="dd"><b>避險基金查核（${esc((hc.at || "").slice(0, 10))}）</b><br>
+      瓶頸 <b>${esc(hc.bottleneck)}</b> — ${esc(hc.bottleneck_rationale)}<br>
+      營收品質：合約占比 <b>${hc.contracted_revenue_pct == null ? "不明" : num(hc.contracted_revenue_pct, 0) + "%"}</b>、
+        合約年限 <b>${hc.contract_years == null ? "不明" : num(hc.contract_years, 1) + " 年"}</b>、市價曝險 <b>${esc(hc.spot_exposure)}</b> — ${esc(hc.revenue_quality_rationale)}<br>
+      分析師預估 <b>${esc(hc.estimate_trend)}</b> — ${esc(hc.estimate_rationale)}<br>
+      擁擠度：放空比率 <b>${hc.short_interest_pct == null ? "不明" : num(hc.short_interest_pct, 1) + "%"}</b> — ${esc(hc.crowding_notes)}<br>
+      <b>催化劑</b><ul>${(hc.catalysts || []).map(k => `<li>${esc(k.when)}：${esc(k.event)}（${esc(k.impact)}）</li>`).join("")}</ul>
+      <b>什麼情況代表看錯</b><ul>${(hc.kill_criteria || []).map(k => `<li>${esc(k)}</li>`).join("")}</ul>
+      <b>結論：</b>${esc(hc.verdict)}
+      ${hc.sources?.length ? `<details><summary>來源（${hc.sources.length}）</summary><ul>${hc.sources.map(x => `<li>[S${x.n}] <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title || x.url)}</a></li>`).join("")}</ul></details>` : ""}
+      <details><summary>完整筆記</summary><div class="report">${esc(hc.notes)}</div></details></div>`;
+  return `<div class="card"><div class="card-head"><span class="rank">${i + 1}</span><span class="t">${esc(c.ticker)}</span><span>${esc(c.name)}</span>
+      <span class="sub">${esc(c.sub_industry)} · ${esc(c.index)}</span><span class="score" title="排序分數：基本面品質 + 你的偏好">${(c.score * 100).toFixed(0)}</span></div>
+    <div class="tags">${[c.size, c.style, c.cycle && "景氣" + c.cycle, c.rate, p.market_structure, p.supplier_power && "對供應商" + p.supplier_power,
+       p.customer_power && "對客戶" + p.customer_power, p.tam_bucket && "TAM " + p.tam_bucket].filter(Boolean).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+    <div class="metrics">
+      <div><span>市值</span> <b>${money(c.market_cap)}</b></div><div><span>品質百分位</span> <b>${pct(c.quality_score)}</b></div>
+      <div><span>ROIC</span> <b>${pct(c.roic, 1)}</b></div><div><span>毛利率</span> <b>${pct(c.gross_margin, 1)}</b></div>
+      <div><span>FCF 率</span> <b>${pct(c.fcf_margin, 1)}</b></div><div><span>F 分數</span> <b>${c.piotroski ?? "—"}</b></div>
+      <div><span>淨負債/EBITDA</span> <b>${num(c.net_debt_to_ebitda)}</b></div><div><span>3 年營收 CAGR</span> <b>${pct(c.revenue_cagr_3y, 1)}</b></div>
+      <div><span>P/E</span> <b>${num(c.pe, 0)}</b></div><div><span>EV/EBITDA</span> <b>${num(c.ev_ebitda)}</b></div>
+      <div><span>FCF 殖利率</span> <b>${pct(c.fcf_yield, 1)}</b></div><div><span>市場 Beta</span> <b>${num(c.market_beta, 2)}</b></div>
+    </div>
+    <div class="tags" title="避險基金五問（量化）">${[
+      p.bottleneck && "瓶頸：" + p.bottleneck, c.pricing_trend && "定價權" + c.pricing_trend, c.revenue_quality && "營收品質" + c.revenue_quality,
+      c.priced_in && "市場" + c.priced_in, c.rate_test && "資金成本" + c.rate_test, c.crowding && "擁擠度" + c.crowding,
+      c.fund_momentum && "基本面" + c.fund_momentum].filter(Boolean).map(t => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+    <div class="metrics">
+      <div><span>隱含 10 年成長</span> <b>${pct(c.implied_growth ?? c.implied_roe, 1)}</b></div><div><span>過去營收成長</span> <b>${pct(c.delivered_growth, 1)}</b></div>
+      <div><span>WACC</span> <b>${pct(c.wacc, 1)}</b></div><div><span>ROIC−WACC</span> <b>${pct(c.return_spread, 1)}</b></div>
+      <div><span>RPO/營收</span> <b>${c.rpo_coverage == null ? "—" : num(c.rpo_coverage, 2) + " 年"}</b></div><div><span>離 12 月高點</span> <b>${pct(c.drawdown_12m)}</b></div>
+    </div>
+    <div class="card-actions">
+      <button class="btn small vote up ${c.rating === 1 ? "on" : ""}" data-rate="1" data-t="${c.ticker}">👍 想要</button>
+      <button class="btn small vote down ${c.rating === -1 ? "on" : ""}" data-rate="-1" data-t="${c.ticker}">👎 不要</button>
+      <label class="meta"><input type="checkbox" data-pick="${c.ticker}" ${picked.has(c.ticker) ? "checked" : ""}> 勾選（10-K 驗證或避險基金查核）</label>
+      <button class="btn small" data-report="${c.ticker}">產生完整研究報告</button>
+    </div>${ddHTML}${hcHTML}</div>`;
+}
+
+function renderShortlist() {
+  const info = S.ranking || {};
+  const byT = Object.fromEntries(S.companies.map(c => [c.ticker, c]));
+  const prefs = info.preferences?.length ? `<div class="prefs">${info.preferences.map(p => `<span class="tag">${esc(p.direction)}：${esc(p.feature)}</span>`).join("")}</div>` : "";
+  const pairs = (S.pairs || []).map(([a, b]) => `<div class="pair"><span>這兩家你比較想要哪一家？</span>
+      <button class="btn small" data-ch="${a}" data-rj="${b}">${esc(a)} ${esc(byT[a]?.name || "")}</button>
+      <button class="btn small" data-ch="${b}" data-rj="${a}">${esc(b)} ${esc(byT[b]?.name || "")}</button></div>`).join("");
+  return `<div class="panel"><h2>${esc(S.title)}（${S.remaining} 家通過，列出前 ${S.companies.length} 名）</h2><p class="q">${esc(S.question)}</p>
+      <p class="explain">已累積 ${info.pairs || 0} 組偏好比較；偏好學習在排序中的權重 ${pct(info.learned_weight)}${info.reward_model ? "，並加入 LoRA 獎勵模型分數" : ""}。</p>${prefs}
+      ${pairs ? `<div class="pairs" style="margin-top:10px">${pairs}</div>` : ""}
+      <div class="nav"><button class="btn" id="back">← 調整門檻</button>
+        <span><button class="btn" id="dive">用 10-K 驗證勾選的公司</button> <button class="btn" id="hedge">避險基金查核勾選的公司</button> <button class="btn" id="finish">完成</button></span></div></div>
+    <div class="cards">${S.companies.map(companyCard).join("") || `<div class="panel">沒有公司通過所有條件。回上一步放寬門檻。</div>`}</div>
+    <div class="panel" id="jobs" hidden></div>`;
+}
+
+function render() {
+  renderSteps();
+  const m = $("#main");
+  if (S.step === "done") { m.innerHTML = `<div class="panel"><h2>完成</h2><p>這次的選擇與回饋都已記錄。<button class="btn" id="again">重新開始</button></p></div>`; $("#again").onclick = start; return; }
+  m.innerHTML = S.step === "overview" ? renderOverview() : S.step === "quality" ? renderQuality() : S.step === "shortlist" ? renderShortlist() : renderFilter();
+  bindTable();
+  const back = $("#back"); if (back) back.onclick = () => send({action: "back"});
+  if (S.step === "overview") {
+    $("#next").onclick = () => send({action: "next", goals: $("#goals").value}, $("#goals").value.trim() ? "解讀你的需求…" : "載入中…");
+    const c = $("#classify"); if (c) c.onclick = classify;
+  } else if (S.step === "quality") {
+    $("#preview").onclick = () => send({action: "goto", step: "quality", quality: qualityAnswer()});
+    $("#next").onclick = () => send({action: "next", quality: qualityAnswer()}, "排序中…");
+  } else if (S.step === "shortlist") bindShortlist();
+  else {
+    if (S.companies) bindCompanyTable();
+    document.querySelectorAll(".chip[data-f]").forEach(ch => ch.onclick = () => {
+      const s = draft[ch.dataset.f]; s.has(ch.dataset.v) ? s.delete(ch.dataset.v) : s.add(ch.dataset.v); render();
+    });
+    document.querySelectorAll("[data-level]").forEach(b => b.onclick = () => {
+      levels[b.dataset.f] = b.dataset.level; send({action: "goto", step: S.step, select: currentSelect(), level: levels});
+    });
+    $("#next").onclick = () => send({action: "next", select: currentSelect(), level: levels});
+  }
+}
+
+function bindShortlist() {
+  document.querySelectorAll("[data-rate]").forEach(b => b.onclick = () => send({action: "rate", ticker: b.dataset.t, rating: Number(b.dataset.rate)}, "學習你的偏好…"));
+  document.querySelectorAll("[data-ch]").forEach(b => b.onclick = () => send({action: "compare", chosen: b.dataset.ch, rejected: b.dataset.rj}, "學習你的偏好…"));
+  document.querySelectorAll("[data-pick]").forEach(b => b.onchange = () => { b.checked ? picked.add(b.dataset.pick) : picked.delete(b.dataset.pick); });
+  $("#dive").onclick = () => {
+    const t = [...picked].slice(0, 8);
+    if (!t.length) return alert("先勾選要驗證的公司（最多 8 家）。");
+    const est = (S.deep_dive_estimate_usd * t.length).toFixed(2);
+    if (!confirm(`下載 ${t.join(", ")} 的最新 10-K，用 Claude 逐家驗證護城河與議價力，約 $${est}（已驗證過 30 天內的不再收費）。要繼續嗎？`)) return;
+    send({action: "deep_dive", tickers: t, confirm: true}, "下載 10-K 並驗證中（每家約 20–40 秒）…").then(() => picked.clear());
+  };
+  $("#hedge").onclick = () => {
+    const t = [...picked].slice(0, 8);
+    if (!t.length) return alert("先勾選要查核的公司（最多 8 家）。");
+    const est = (S.hedge_check_estimate_usd * t.length).toFixed(2);
+    if (!confirm(`為 ${t.join(", ")} 做避險基金查核：讀 10-K 的合約與未履約訂單，再上網查分析師預估、放空比率與未來催化劑。約 $${est}（估計值；7 天內查過的不再收費）。要繼續嗎？`)) return;
+    send({action: "hedge_check", tickers: t, confirm: true}, "查核中（每家約 1–2 分鐘）…").then(() => picked.clear());
+  };
+  $("#finish").onclick = () => send({action: "finish"});
+  document.querySelectorAll("[data-report]").forEach(b => b.onclick = () => startReport(b.dataset.report));
+}
+
+async function startReport(ticker) {
+  if (!confirm(`用報告產生器為 ${ticker} 寫完整研究報告（合理股價、競爭、價值鏈、產業、總經）。約 $3.6、11 分鐘，在背景執行。要繼續嗎？`)) return;
+  const job = await api(`/screen/${S.session_id}/report`, {ticker, confirm: true});
+  const box = $("#jobs"); box.hidden = false;
+  box.innerHTML = `<h2>${esc(ticker)} 研究報告</h2><p class="meta" id="jobstat">產生中…（可以繼續操作，完成後會顯示在這裡）</p><div id="jobout"></div>`;
+  const t0 = Date.now();
+  const poll = async () => {
+    const j = await api(`/screen/jobs/${job.job_id}`, null, "GET");
+    if (j.status === "running") { $("#jobstat").textContent = `產生中… ${Math.round((Date.now() - t0) / 60000)} 分鐘`; return setTimeout(poll, 15000); }
+    if (j.status === "failed") { $("#jobstat").innerHTML = `<span class="err">失敗：${esc(j.error)}</span>`; return; }
+    $("#jobstat").textContent = `完成：評等 ${j.rating || "—"}，花費 ${usd(j.cost_usd)}（也存在 runs/ 資料夾）`;
+    $("#jobout").innerHTML = `<div class="report">${esc(j.report)}</div>`;
+  };
+  setTimeout(poll, 15000);
+}
+
+async function classify() {
+  const est = await api("/screen/profiles", {confirm: false});
+  if (!confirm(`用 Claude（Sonnet）分類 ${est.todo} 個產業的市場結構、議價力與 TAM，估計 $${est.estimate_usd}，約 2–5 分鐘。要繼續嗎？`)) return;
+  busy(true, `分類 ${est.todo} 個產業中…`);
+  try { const r = await api("/screen/profiles", {confirm: true}); alert(`完成 ${r.profiled} 個，失敗 ${r.failed.length} 個，花費 ${usd(r.cost_usd)}`);
+        S = await api(`/screen/${S.session_id}`, null, "GET"); render(); }
+  catch (e) { alert("錯誤：" + e.message); } finally { busy(false); }
+}
+
+async function start() {
+  busy(true, "建立新的篩選…");
+  try { S = await api("/screen", {goals: ""}); visited = new Set(["overview"]); afterLoad(); }
+  catch (e) { $("#main").innerHTML = `<div class="panel err">${esc(e.message)}</div>`; }
+  finally { busy(false); }
+}
+
+(async () => {
+  let sid = null; try { sid = localStorage.getItem("taurus-screen"); } catch (e) {}
+  if (sid) { try { S = await api(`/screen/${sid}`, null, "GET"); if (S.step !== "done") { (S.steps || []).slice(0, (S.position || 0) + 1).forEach(s => visited.add(s)); return afterLoad(); } } catch (e) {} }
+  start();
+})();
+</script>
+</body>
+</html>
