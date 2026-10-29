@@ -96,6 +96,7 @@ select { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border
 .pair { border: 1px dashed var(--line); border-radius: 10px; padding: 10px; display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .prefs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 .err { color: var(--bad); white-space: pre-wrap; }
+[hidden] { display: none !important; }  /* .busy sets display, which would override the hidden attribute */
 .busy { position: fixed; inset: 0; background: color-mix(in srgb, var(--bg) 60%, transparent); display: grid; place-items: center; z-index: 10; }
 .busy div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 22px; }
 .report { white-space: pre-wrap; font-size: 13.5px; max-height: 70vh; overflow: auto; background: var(--chip); padding: 14px; border-radius: 8px; }
